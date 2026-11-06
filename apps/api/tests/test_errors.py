@@ -53,8 +53,10 @@ def test_status_codes_per_error() -> None:
 
 
 def test_unhandled_error_hides_internals() -> None:
-    response = make_client().get("/boom")
+    response = make_client().get("/boom", headers={"X-Request-ID": "r1"})
     assert response.status_code == 500
     body = response.json()
     assert body["code"] == "internal_error"
+    assert body["request_id"] == "r1"
+    assert response.headers["X-Request-ID"] == "r1"
     assert "secret" not in response.text

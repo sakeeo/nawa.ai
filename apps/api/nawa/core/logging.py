@@ -38,6 +38,7 @@ def configure_logging(level: str) -> None:
 class RequestIdMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         request_id = request.headers.get("X-Request-ID") or uuid.uuid4().hex
+        request.state.request_id = request_id
         token = request_id_var.set(request_id)
         try:
             response = await call_next(request)

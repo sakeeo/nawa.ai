@@ -43,7 +43,9 @@ class ValidationFailedError(DomainError):
     title = "Unprocessable Entity"
 
 
-def _problem(status: int, title: str, code: str, detail: str) -> JSONResponse:
+def _problem(
+    status: int, title: str, code: str, detail: str, request_id: str | None = None
+) -> JSONResponse:
     return JSONResponse(
         status_code=status,
         media_type="application/problem+json",
@@ -53,7 +55,7 @@ def _problem(status: int, title: str, code: str, detail: str) -> JSONResponse:
             "status": status,
             "detail": detail,
             "code": code,
-            "request_id": request_id_var.get(),
+            "request_id": request_id if request_id is not None else request_id_var.get(),
         },
     )
 
@@ -64,6 +66,18 @@ def install_error_handlers(app: FastAPI) -> None:
         return _problem(exc.status_code, exc.title, exc.code, exc.detail)
 
     @app.exception_handler(Exception)
-    async def handle_unexpected(_: Request, exc: Exception) -> JSONResponse:
-        logger.exception("unhandled error", exc_info=exc)
-        return _problem(500, "Internal Server Error", "internal_error", "Unexpected error")
+    async def handle_unexpected(request: Request, exc: Exception) -> JSONResponse:
+        # This handler runs in ServerErrorMiddleware, outside RequestIdMiddleware, so the
+        # ContextVar is already reset. The id is recovered from shared request state.
+        request_id = getattr(request.state, "request_id", "")
+        token = request_id_var.set(request_id)
+        try:
+            logger.exception("unhandled error", exc_info=exc)
+        finally:
+            request_id_var.reset(token)
+        response = _problem(
+            500, "Internal Server Error", "internal_error", "Unexpected error", request_id
+        )
+        if request_id:
+            response.headers["X-Request-ID"] = request_id
+        return response
