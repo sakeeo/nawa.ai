@@ -72,3 +72,11 @@ async def insert_membership(
             ),
             {"id": uuid.uuid4(), "ws": workspace_id, "user": user_id, "role": role},
         )
+
+
+async def log_in(client: httpx.AsyncClient, email: str, password: str = PASSWORD) -> str:
+    response = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    assert response.status_code == 200, response.text
+    csrf = client.cookies.get("csrf_token")
+    assert csrf
+    return csrf

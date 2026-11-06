@@ -1,17 +1,31 @@
 import asyncio
 import os
 import secrets
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from pathlib import Path
 
+import fakeredis.aioredis
+import httpx
 import pytest
 import pytest_asyncio
 from alembic import command
 from alembic.config import Config
+from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.engine import make_url
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import (
+    AsyncEngine,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.pool import NullPool
+
+from nawa.core.config import get_settings
+from nawa.core.db import get_sessionmaker
+from nawa.core.ratelimit import get_redis
+from nawa.main import create_app
+from tests.integration.helpers import Actor, insert_user, log_in
 
 API_ROOT = Path(__file__).resolve().parents[2]
 APP_ROLE = "nawa_app_test"
@@ -82,3 +96,61 @@ async def app_engine(
     engine = create_async_engine(database["app"], poolclass=NullPool)
     yield engine
     await engine.dispose()
+
+
+@pytest_asyncio.fixture
+async def sessionmaker(app_engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(app_engine, expire_on_commit=False)
+
+
+@pytest_asyncio.fixture
+async def app(
+    sessionmaker: async_sessionmaker[AsyncSession],
+    database: dict[str, str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> AsyncIterator[FastAPI]:
+    monkeypatch.setenv("DATABASE_URL", database["app"])
+    monkeypatch.setenv("REDIS_URL", "redis://unused:6379/0")
+    monkeypatch.setenv("LOGIN_LIMIT_PER_IP", "10")
+    get_settings.cache_clear()
+    application = create_app()
+    redis = fakeredis.aioredis.FakeRedis()
+    application.dependency_overrides[get_sessionmaker] = lambda: sessionmaker
+    application.dependency_overrides[get_redis] = lambda: redis
+    yield application
+    await redis.aclose()
+    get_settings.cache_clear()
+
+
+@pytest_asyncio.fixture
+async def client_factory(app: FastAPI) -> AsyncIterator[Callable[[], httpx.AsyncClient]]:
+    clients: list[httpx.AsyncClient] = []
+
+    def make() -> httpx.AsyncClient:
+        client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+        clients.append(client)
+        return client
+
+    yield make
+    for client in clients:
+        await client.aclose()
+
+
+@pytest_asyncio.fixture
+async def client(client_factory: Callable[[], httpx.AsyncClient]) -> httpx.AsyncClient:
+    return client_factory()
+
+
+@pytest_asyncio.fixture
+async def make_actor(
+    client_factory: Callable[[], httpx.AsyncClient], owner_engine: AsyncEngine
+) -> Callable[..., Awaitable[Actor]]:
+    """Create a user directly in the database, log in with a fresh cookie jar, return it."""
+
+    async def make(email: str, *, is_admin: bool = False, is_active: bool = True) -> Actor:
+        user_id = await insert_user(owner_engine, email, is_admin=is_admin, is_active=is_active)
+        http = client_factory()
+        csrf = await log_in(http, email)
+        return Actor(user_id=user_id, email=email, client=http, csrf=csrf)
+
+    return make
