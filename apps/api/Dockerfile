@@ -6,6 +6,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
 
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY nawa ./nawa
 RUN uv sync --frozen --no-dev
 

@@ -42,9 +42,19 @@ services:
       retries: 20
       start_period: 10s
 
+  migrate:
+    build: ./apps/api
+    image: nawa-api:dev
+    env_file: .env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
   api:
     <<: *restart
     build: ./apps/api
+    image: nawa-api:dev
     env_file: .env
     environment:
       OFFLINE_MODE: ${OFFLINE_MODE:-false}
@@ -52,6 +62,7 @@ services:
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz')"]
       interval: 10s
