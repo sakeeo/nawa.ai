@@ -1,12 +1,15 @@
 import secrets
-from typing import Annotated
+import uuid
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Annotated, Literal, cast
 
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nawa.core.config import Settings, get_settings
 from nawa.core.db import apply_rls, get_session
-from nawa.core.errors import AuthenticationError, PermissionDeniedError
+from nawa.core.errors import AuthenticationError, NotFoundError, PermissionDeniedError
 from nawa.core.security import decode_access_token
 from nawa.workspace import repository
 from nawa.workspace.cookies import ACCESS_COOKIE, CSRF_COOKIE, CSRF_HEADER
@@ -68,3 +71,49 @@ async def get_system_session(session: SessionDep) -> AsyncSession:
 
 
 SystemSession = Annotated[AsyncSession, Depends(get_system_session)]
+
+
+Role = Literal["viewer", "member", "manager", "admin"]
+ROLE_RANK: dict[str, int] = {"viewer": 1, "member": 2, "manager": 3, "admin": 4}
+
+
+@dataclass(frozen=True)
+class WorkspaceContext:
+    workspace_id: uuid.UUID
+    user: User
+    role: Role
+    session: AsyncSession
+
+
+def require_role(minimum: Role) -> Callable[..., Awaitable[WorkspaceContext]]:
+    """Dependency factory. Reads `workspace_id` from the route path.
+
+    The returned session already carries the workspace RLS context, so handlers can query
+    tenant tables directly. Installation admins count as role `admin` everywhere.
+    """
+
+    async def dependency(
+        workspace_id: uuid.UUID, user: CurrentUser, session: SessionDep
+    ) -> WorkspaceContext:
+        await apply_rls(session, user_id=user.id, is_admin=user.is_admin)
+        if user.is_admin:
+            if not await repository.workspace_exists(session, workspace_id):
+                raise NotFoundError("Workspace not found")
+            role: Role = "admin"
+        else:
+            membership = await repository.get_membership(session, workspace_id, user.id)
+            if membership is None:
+                raise PermissionDeniedError("No access to this workspace")
+            role = cast(Role, membership.role)
+        if ROLE_RANK[role] < ROLE_RANK[minimum]:
+            raise PermissionDeniedError("Insufficient role for this action")
+        await apply_rls(session, workspace_id=workspace_id, user_id=user.id, is_admin=user.is_admin)
+        return WorkspaceContext(workspace_id=workspace_id, user=user, role=role, session=session)
+
+    return dependency
+
+
+ViewerCtx = Annotated[WorkspaceContext, Depends(require_role("viewer"))]
+MemberCtx = Annotated[WorkspaceContext, Depends(require_role("member"))]
+ManagerCtx = Annotated[WorkspaceContext, Depends(require_role("manager"))]
+AdminCtx = Annotated[WorkspaceContext, Depends(require_role("admin"))]

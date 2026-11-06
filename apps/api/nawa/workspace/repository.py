@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nawa.workspace.models import Membership, RefreshToken, User
+from nawa.workspace.models import Membership, RefreshToken, User, Workspace
 
 
 async def get_user(session: AsyncSession, user_id: uuid.UUID) -> User | None:
@@ -38,3 +38,38 @@ async def revoke_family(session: AsyncSession, family_id: uuid.UUID, now: dateti
         .where(RefreshToken.family_id == family_id, RefreshToken.revoked_at.is_(None))
         .values(revoked_at=now)
     )
+
+
+async def get_workspace(session: AsyncSession, workspace_id: uuid.UUID) -> Workspace | None:
+    result = await session.execute(select(Workspace).where(Workspace.id == workspace_id))
+    return result.scalar_one_or_none()
+
+
+async def workspace_exists(session: AsyncSession, workspace_id: uuid.UUID) -> bool:
+    return await get_workspace(session, workspace_id) is not None
+
+
+async def list_workspaces(
+    session: AsyncSession, *, user_id: uuid.UUID, is_admin: bool
+) -> list[tuple[Workspace, str]]:
+    if is_admin:
+        result = await session.execute(select(Workspace).order_by(Workspace.name))
+        return [(workspace, "admin") for workspace in result.scalars().all()]
+    rows = await session.execute(
+        select(Workspace, Membership.role)
+        .join(Membership, Membership.workspace_id == Workspace.id)
+        .where(Membership.user_id == user_id)
+        .order_by(Workspace.name)
+    )
+    return [(workspace, role) for workspace, role in rows.all()]
+
+
+async def get_membership(
+    session: AsyncSession, workspace_id: uuid.UUID, user_id: uuid.UUID
+) -> Membership | None:
+    result = await session.execute(
+        select(Membership).where(
+            Membership.workspace_id == workspace_id, Membership.user_id == user_id
+        )
+    )
+    return result.scalar_one_or_none()

@@ -26,3 +26,15 @@ class MembershipOut(BaseModel):
 class MeOut(BaseModel):
     user: UserOut
     memberships: list[MembershipOut]
+
+
+class WorkspaceCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    slug: str = Field(max_length=50, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$")
+
+
+class WorkspaceOut(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    role: str
