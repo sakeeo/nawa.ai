@@ -43,6 +43,18 @@ class ValidationFailedError(DomainError):
     title = "Unprocessable Entity"
 
 
+class AuthenticationError(DomainError):
+    status_code = 401
+    code = "unauthenticated"
+    title = "Unauthorized"
+
+
+class RateLimitedError(DomainError):
+    status_code = 429
+    code = "rate_limited"
+    title = "Too Many Requests"
+
+
 def _problem(
     status: int, title: str, code: str, detail: str, request_id: str | None = None
 ) -> JSONResponse:
