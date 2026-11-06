@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nawa.core.db import apply_rls
 from nawa.core.ratelimit import RateLimiter, get_limiter
 from nawa.workspace import auth_service, repository
-from nawa.workspace.cookies import set_auth_cookies
-from nawa.workspace.deps import CurrentUser, SessionDep, SettingsDep
+from nawa.workspace.cookies import REFRESH_COOKIE, clear_auth_cookies, set_auth_cookies
+from nawa.workspace.deps import CurrentUser, SessionDep, SettingsDep, require_csrf
 from nawa.workspace.models import User
 from nawa.workspace.schemas import LoginRequest, MembershipOut, MeOut, UserOut
 
@@ -46,3 +46,22 @@ async def login(
 @router.get("/me", response_model=MeOut)
 async def me(user: CurrentUser, session: SessionDep) -> MeOut:
     return await build_me(session, user)
+
+
+@router.post("/refresh", response_model=MeOut, dependencies=[Depends(require_csrf)])
+async def refresh(
+    request: Request, response: Response, session: SessionDep, settings: SettingsDep
+) -> MeOut:
+    user, tokens = await auth_service.refresh(
+        session, settings, raw_token=request.cookies.get(REFRESH_COOKIE)
+    )
+    set_auth_cookies(response, settings, tokens)
+    return await build_me(session, user)
+
+
+@router.post("/logout", status_code=204, dependencies=[Depends(require_csrf)])
+async def logout(request: Request, session: SessionDep) -> Response:
+    await auth_service.logout(session, raw_token=request.cookies.get(REFRESH_COOKIE))
+    response = Response(status_code=204)
+    clear_auth_cookies(response)
+    return response

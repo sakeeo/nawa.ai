@@ -86,3 +86,46 @@ async def login(
     await record_audit(session, action="auth.login", actor_id=user.id)
     await session.commit()
     return user, tokens
+
+
+async def refresh(
+    session: AsyncSession, settings: Settings, *, raw_token: str | None
+) -> tuple[User, IssuedTokens]:
+    if not raw_token:
+        raise AuthenticationError("Not authenticated")
+    # FOR UPDATE serialises concurrent uses of the same token: the loser sees it revoked.
+    token = await repository.get_refresh_token_by_hash(
+        session, hash_token(raw_token), for_update=True
+    )
+    if token is None:
+        raise AuthenticationError("Not authenticated")
+    now = datetime.now(UTC)
+    if token.revoked_at is not None:
+        # A rotated token came back: assume theft and kill the whole chain.
+        await repository.revoke_family(session, token.family_id, now)
+        await record_audit(session, action="auth.refresh_reuse_detected", actor_id=token.user_id)
+        await session.commit()
+        raise AuthenticationError("Not authenticated")
+    if token.expires_at <= now:
+        raise AuthenticationError("Not authenticated")
+    user = await repository.get_user(session, token.user_id)
+    if user is None or not user.is_active:
+        raise AuthenticationError("Not authenticated")
+
+    new_id = uuid.uuid4()
+    tokens = _issue(session, settings, user.id, family_id=token.family_id, refresh_id=new_id)
+    token.revoked_at = now
+    token.replaced_by = new_id
+    await session.commit()
+    return user, tokens
+
+
+async def logout(session: AsyncSession, *, raw_token: str | None) -> None:
+    if not raw_token:
+        return
+    token = await repository.get_refresh_token_by_hash(session, hash_token(raw_token))
+    if token is None:
+        return
+    await repository.revoke_family(session, token.family_id, datetime.now(UTC))
+    await record_audit(session, action="auth.logout", actor_id=token.user_id)
+    await session.commit()
