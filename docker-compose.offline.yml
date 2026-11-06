@@ -1,0 +1,13 @@
+# Offline overlay: no route to the internet, OFFLINE_MODE on. Used by scripts/offline-smoke.sh.
+#   docker compose -f docker-compose.yml -f docker-compose.offline.yml --profile local-llm up -d
+# An `internal: true` network has no gateway, so containers can reach each other but not the
+# internet. Published host ports do not work on it; use `docker compose exec` for checks.
+networks:
+  default:
+    internal: true
+
+services:
+  api:
+    environment:
+      OFFLINE_MODE: "true"
+      LLM_FALLBACK_MODEL: ""

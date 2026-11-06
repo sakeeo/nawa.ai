@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 COMPOSE := docker compose
 
-.PHONY: dev dev-lite down seed test lint eval
+.PHONY: dev dev-lite down seed test lint eval offline-smoke
 
 dev:
 	@test -f .env || (echo "Missing .env: copy .env.example and set secrets" && exit 1)
@@ -27,3 +27,6 @@ lint:
 
 eval:
 	@echo "eval: implemented in Phase 1"
+
+offline-smoke:
+	./scripts/offline-smoke.sh
