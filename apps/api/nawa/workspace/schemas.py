@@ -81,3 +81,19 @@ class InviteAccepted(BaseModel):
     email: str
     workspace_id: uuid.UUID
     role: str
+
+
+class SetupStatus(BaseModel):
+    setup_required: bool
+    providers: list[str]
+
+
+class SetupRequest(BaseModel):
+    # Forbid extras so a client can never send an API key through the wizard.
+    model_config = ConfigDict(extra="forbid")
+
+    setup_token: str = Field(min_length=1, max_length=200)
+    email: EmailStr
+    password: str = Field(min_length=12, max_length=128)
+    provider: str = Field(min_length=1, max_length=50)
+    load_demo_data: bool = False

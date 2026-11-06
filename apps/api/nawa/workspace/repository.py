@@ -4,7 +4,14 @@ from datetime import datetime
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nawa.workspace.models import Invite, Membership, RefreshToken, User, Workspace
+from nawa.workspace.models import (
+    InstanceSettings,
+    Invite,
+    Membership,
+    RefreshToken,
+    User,
+    Workspace,
+)
 
 
 async def get_user(session: AsyncSession, user_id: uuid.UUID) -> User | None:
@@ -128,3 +135,36 @@ async def get_valid_invite(
         )
     ).first()
     return None if row is None else (row[0], row[1])
+
+
+async def get_instance_settings(session: AsyncSession) -> InstanceSettings:
+    result = await session.execute(select(InstanceSettings).where(InstanceSettings.id == 1))
+    return result.scalar_one()
+
+
+async def setup_required(session: AsyncSession) -> bool:
+    if (await get_instance_settings(session)).setup_completed:
+        return False
+    return (await session.execute(select(User.id).limit(1))).first() is None
+
+
+async def set_setup_token_hash(session: AsyncSession, token_hash: str) -> None:
+    await session.execute(
+        update(InstanceSettings).where(InstanceSettings.id == 1).values(setup_token_hash=token_hash)
+    )
+
+
+async def claim_setup(session: AsyncSession, *, provider: str, demo_data_requested: bool) -> bool:
+    """Atomically flip setup to completed. Returns False if someone else got there first."""
+    result = await session.execute(
+        update(InstanceSettings)
+        .where(InstanceSettings.id == 1, InstanceSettings.setup_completed.is_(False))
+        .values(
+            setup_completed=True,
+            ai_provider=provider,
+            demo_data_requested=demo_data_requested,
+            setup_token_hash=None,
+        )
+        .returning(InstanceSettings.id)
+    )
+    return result.first() is not None
