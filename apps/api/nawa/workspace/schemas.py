@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -38,3 +39,13 @@ class WorkspaceOut(BaseModel):
     name: str
     slug: str
     role: str
+
+
+class MemberOut(BaseModel):
+    user_id: uuid.UUID
+    email: str
+    role: str
+
+
+class MemberUpdate(BaseModel):
+    role: Literal["manager", "member", "viewer"]

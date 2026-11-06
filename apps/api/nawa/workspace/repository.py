@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nawa.workspace.models import Membership, RefreshToken, User, Workspace
@@ -73,3 +73,26 @@ async def get_membership(
         )
     )
     return result.scalar_one_or_none()
+
+
+async def list_members(
+    session: AsyncSession, workspace_id: uuid.UUID
+) -> list[tuple[Membership, User]]:
+    rows = await session.execute(
+        select(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .where(Membership.workspace_id == workspace_id)
+        .order_by(User.email)
+    )
+    return [(membership, user) for membership, user in rows.all()]
+
+
+async def delete_membership(
+    session: AsyncSession, workspace_id: uuid.UUID, user_id: uuid.UUID
+) -> bool:
+    result = await session.execute(
+        delete(Membership)
+        .where(Membership.workspace_id == workspace_id, Membership.user_id == user_id)
+        .returning(Membership.id)
+    )
+    return result.first() is not None
