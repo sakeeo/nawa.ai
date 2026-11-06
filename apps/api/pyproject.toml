@@ -48,3 +48,33 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
 python_version = "3.12"
 strict = true
 packages = ["nawa"]
+
+[tool.importlinter]
+root_package = "nawa"
+include_external_packages = false
+
+[[tool.importlinter.contracts]]
+name = "Business modules are independent"
+type = "independence"
+modules = [
+  "nawa.workspace",
+  "nawa.knowledge",
+  "nawa.data",
+  "nawa.agents",
+  "nawa.automation",
+  "nawa.evaluation",
+]
+
+[[tool.importlinter.contracts]]
+name = "Core does not import business modules"
+type = "forbidden"
+source_modules = ["nawa.core"]
+forbidden_modules = [
+  "nawa.workspace",
+  "nawa.knowledge",
+  "nawa.data",
+  "nawa.agents",
+  "nawa.automation",
+  "nawa.evaluation",
+  "nawa.intelligence",
+]
