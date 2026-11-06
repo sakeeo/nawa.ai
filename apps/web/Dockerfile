@@ -7,7 +7,8 @@ RUN pnpm install --frozen-lockfile
 FROM node:22-alpine AS build
 RUN corepack enable
 WORKDIR /app
-ENV NEXT_TELEMETRY_DISABLED=1
+ARG API_INTERNAL_URL=http://api:8000
+ENV API_INTERNAL_URL=$API_INTERNAL_URL NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
