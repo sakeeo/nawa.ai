@@ -4,7 +4,7 @@ from datetime import datetime
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nawa.workspace.models import Membership, RefreshToken, User, Workspace
+from nawa.workspace.models import Invite, Membership, RefreshToken, User, Workspace
 
 
 async def get_user(session: AsyncSession, user_id: uuid.UUID) -> User | None:
@@ -96,3 +96,35 @@ async def delete_membership(
         .returning(Membership.id)
     )
     return result.first() is not None
+
+
+async def consume_invite(session: AsyncSession, token_hash: str, now: datetime) -> Invite | None:
+    """Mark the invite accepted if it is still valid. Atomic, so a token works once."""
+    result = await session.execute(
+        update(Invite)
+        .where(
+            Invite.token_hash == token_hash,
+            Invite.accepted_at.is_(None),
+            Invite.expires_at > now,
+        )
+        .values(accepted_at=now)
+        .returning(Invite)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_valid_invite(
+    session: AsyncSession, token_hash: str, now: datetime
+) -> tuple[Invite, Workspace] | None:
+    row = (
+        await session.execute(
+            select(Invite, Workspace)
+            .join(Workspace, Workspace.id == Invite.workspace_id)
+            .where(
+                Invite.token_hash == token_hash,
+                Invite.accepted_at.is_(None),
+                Invite.expires_at > now,
+            )
+        )
+    ).first()
+    return None if row is None else (row[0], row[1])

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
@@ -49,3 +50,34 @@ class MemberOut(BaseModel):
 
 class MemberUpdate(BaseModel):
     role: Literal["manager", "member", "viewer"]
+
+
+class InviteCreate(BaseModel):
+    email: EmailStr
+    role: Literal["manager", "member", "viewer"]
+
+
+class InviteCreated(BaseModel):
+    id: uuid.UUID
+    email: str
+    role: str
+    expires_at: datetime
+    token: str
+    accept_path: str
+
+
+class InvitePreview(BaseModel):
+    email: str
+    workspace_name: str
+    role: str
+
+
+class InviteAccept(BaseModel):
+    token: str = Field(min_length=1, max_length=200)
+    password: str | None = Field(default=None, min_length=12, max_length=128)
+
+
+class InviteAccepted(BaseModel):
+    email: str
+    workspace_id: uuid.UUID
+    role: str
