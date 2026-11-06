@@ -35,6 +35,12 @@ services:
     image: ollama/ollama:latest
     ports: ["127.0.0.1:11434:11434"]
     volumes: [ollama_data:/root/.ollama]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
 
   api:
     <<: *restart
@@ -68,7 +74,8 @@ services:
     command: ["ollama pull bge-m3 && ollama pull ${OLLAMA_CHAT_MODEL:?set in .env}"]
     environment:
       OLLAMA_HOST: http://ollama:11434
-    depends_on: [ollama]
+    depends_on:
+      ollama: {condition: service_healthy}
     restart: "no"
 
   langfuse-db:
@@ -114,6 +121,7 @@ services:
       timeout: 5s
       retries: 20
 
+  # No healthcheck: the mc binary is not guaranteed in minio/minio images; Langfuse retries S3 connections.
   minio:
     <<: *restart
     profiles: ["observability"]
@@ -124,11 +132,6 @@ services:
       MINIO_ROOT_USER: minio
       MINIO_ROOT_PASSWORD: ${LANGFUSE_MINIO_PASSWORD:?set in .env}
     volumes: [minio_data:/data]
-    healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
 
   langfuse-worker:
     <<: *restart
@@ -138,7 +141,7 @@ services:
       langfuse-db: {condition: service_healthy}
       langfuse-redis: {condition: service_healthy}
       clickhouse: {condition: service_healthy}
-      minio: {condition: service_healthy}
+      minio: {condition: service_started}
     environment: &langfuse-env
       DATABASE_URL: postgresql://langfuse:${LANGFUSE_DB_PASSWORD}@langfuse-db:5432/langfuse
       SALT: ${LANGFUSE_SALT:?set in .env}
