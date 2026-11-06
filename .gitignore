@@ -44,6 +44,7 @@ mcp.json
 # =========================================================
 # Planning documents — NEVER commit to the repository
 # =========================================================
+roadmap/
 MASTER_PLAN.MD
 MASTER_PLAN.md
 *PLAN*.md
