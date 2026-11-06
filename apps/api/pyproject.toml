@@ -13,6 +13,8 @@ dependencies = [
   "pyjwt>=2.15.1",
   "alembic>=1.20.1",
   "email-validator>=2.3.0",
+  "litellm>=1.108.1",
+  "pyyaml>=6.0.3",
 ]
 
 [dependency-groups]
@@ -25,6 +27,7 @@ dev = [
   "mypy>=1.13",
   "import-linter>=2.1",
   "fakeredis>=2.40.0",
+  "types-pyyaml>=6.0.12.20261103",
 ]
 
 [build-system]
@@ -36,6 +39,7 @@ packages = ["nawa"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["../../seed"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
