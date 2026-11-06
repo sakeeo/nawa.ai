@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Awaitable, Callable
 from typing import Annotated
 
@@ -10,6 +11,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from nawa.core.config import Settings, get_settings
 
 ReadinessCheck = Callable[[], Awaitable[None]]
+
+logger = logging.getLogger("nawa.health")
 
 router = APIRouter()
 
@@ -50,6 +53,7 @@ async def readyz(
             await check()
             results[name] = "ok"
         except Exception:
+            logger.warning("readiness check failed", extra={"check": name}, exc_info=True)
             results[name] = "failed"
     ready = all(value == "ok" for value in results.values())
     return JSONResponse(

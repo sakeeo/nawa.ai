@@ -1,3 +1,6 @@
+import logging
+from collections.abc import Iterator
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -7,9 +10,11 @@ from nawa.main import create_app
 
 
 @pytest.fixture(autouse=True)
-def env(monkeypatch: pytest.MonkeyPatch) -> None:
+def env(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@h/db")
     monkeypatch.setenv("REDIS_URL", "redis://h:6379/0")
+    get_settings.cache_clear()
+    yield
     get_settings.cache_clear()
 
 
@@ -46,3 +51,20 @@ def test_readyz_503_when_a_check_fails() -> None:
         "status": "not_ready",
         "checks": {"postgres": "ok", "redis": "failed"},
     }
+
+
+def test_readyz_logs_failure_without_leaking_it(caplog: pytest.LogCaptureFixture) -> None:
+    client = client_with({"redis": fail})
+    # create_app() reconfigures root logging and drops caplog's handler; re-attach it.
+    logging.getLogger().addHandler(caplog.handler)
+    try:
+        with caplog.at_level(logging.WARNING, logger="nawa.health"):
+            response = client.get("/readyz")
+    finally:
+        logging.getLogger().removeHandler(caplog.handler)
+    records = [r for r in caplog.records if r.name == "nawa.health"]
+    assert len(records) == 1
+    assert records[0].levelno == logging.WARNING
+    assert records[0].getMessage() == "readiness check failed"
+    assert records[0].exc_info is not None
+    assert "down" not in response.text
