@@ -41,8 +41,15 @@ async def test_every_workspace_route_rejects_another_tenants_workspace(
         for r in iter_api_routes(app.routes)
         if isinstance(r, APIRoute) and "{workspace_id}" in r.path
     ]
-    # Real count: GET workspace, GET/PATCH/DELETE members, POST invites (5 route objects).
-    assert len(routes) >= 5
+    # Exact route set: 5 route objects across 4 paths. Any removal fails loudly; a new
+    # route is picked up automatically by the loop below.
+    assert {r.path for r in routes} == {
+        "/api/v1/workspaces/{workspace_id}",
+        "/api/v1/workspaces/{workspace_id}/members",
+        "/api/v1/workspaces/{workspace_id}/members/{user_id}",
+        "/api/v1/workspaces/{workspace_id}/invites",
+    }
+    assert sum(len(r.methods) for r in routes) >= 5
     for route in routes:
         path = route.path.replace("{workspace_id}", str(ws_b)).replace(
             "{user_id}", str(uuid.uuid4())

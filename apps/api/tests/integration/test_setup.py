@@ -2,6 +2,7 @@ import logging
 
 import httpx
 import pytest
+from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
@@ -31,6 +32,28 @@ async def test_status_requires_setup_on_a_fresh_instance(client: httpx.AsyncClie
     body = (await client.get(STATUS)).json()
     assert body["setup_required"] is True
     assert body["providers"] == ["ollama"]
+
+
+async def test_lifespan_generates_a_setup_token_and_stores_only_its_hash(
+    app: FastAPI,
+    owner_engine: AsyncEngine,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """httpx.ASGITransport does not run the lifespan, so cover the start-up wiring here.
+
+    This exercises the real (non-overridden) get_sessionmaker exactly like production.
+    """
+    with caplog.at_level(logging.WARNING, logger="nawa.setup"):
+        async with app.router.lifespan_context(app):
+            pass
+    assert "First-run setup token" in caplog.text
+
+    token = caplog.text.rsplit(": ", 1)[1].splitlines()[0].strip()
+    async with owner_engine.connect() as conn:
+        stored = (
+            await conn.execute(text("SELECT setup_token_hash FROM instance_settings"))
+        ).scalar_one()
+    assert stored == hash_token(token)
 
 
 async def test_setup_token_is_generated_logged_once_and_stored_hashed(
