@@ -22,7 +22,7 @@ test:
 	cd apps/web && pnpm test
 
 lint:
-	cd apps/api && uv run ruff check . && uv run ruff format --check . && uv run mypy && uv run lint-imports
+	cd apps/api && uv run ruff check . ../../seed && uv run ruff format --check . ../../seed && uv run mypy && uv run lint-imports
 	cd apps/web && pnpm lint && pnpm typecheck
 
 eval:

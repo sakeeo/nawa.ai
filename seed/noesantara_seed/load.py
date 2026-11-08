@@ -61,7 +61,6 @@ TABLES: list[tuple[str, list[str]]] = [
 ]
 
 
-
 def to_asyncpg_dsn(url: str) -> str:
     """Accept SQLAlchemy-style URLs (postgresql+asyncpg://, postgresql+psycopg://)."""
     scheme, sep, rest = url.partition("://")
