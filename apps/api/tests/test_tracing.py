@@ -38,6 +38,16 @@ def test_langfuse_callbacks_enabled_with_keys() -> None:
     assert litellm.failure_callback == ["langfuse"]
 
 
+def test_installed_langfuse_sdk_is_supported_by_litellm() -> None:
+    """The callback needs the langfuse package; a missing or too-new SDK breaks every LLM call."""
+    from litellm.integrations.langfuse.langfuse import (
+        installed_langfuse_version,
+        raise_if_unsupported_langfuse_version,
+    )
+
+    raise_if_unsupported_langfuse_version(installed_langfuse_version())
+
+
 def test_no_callbacks_without_keys() -> None:
     configure_litellm(Settings(_env_file=None, **BASE))
     assert litellm.success_callback == []

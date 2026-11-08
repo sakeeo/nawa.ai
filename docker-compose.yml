@@ -192,6 +192,18 @@ services:
       <<: *langfuse-env
       NEXTAUTH_URL: http://localhost:3100
       NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:?set in .env}
+      # Headless bootstrap: on first start Langfuse creates this org, project, API key pair and
+      # first user. The API reads the same key pair from .env (LANGFUSE_PUBLIC_KEY/SECRET_KEY).
+      # Left empty, nothing is created and the sign-up page works as usual.
+      LANGFUSE_INIT_ORG_ID: nawa
+      LANGFUSE_INIT_ORG_NAME: NAWA
+      LANGFUSE_INIT_PROJECT_ID: nawa-ai
+      LANGFUSE_INIT_PROJECT_NAME: NAWA.AI
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_INIT_USER_EMAIL: ${LANGFUSE_INIT_USER_EMAIL:-}
+      LANGFUSE_INIT_USER_NAME: admin
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_INIT_USER_PASSWORD:-}
 
 volumes:
   postgres_data:

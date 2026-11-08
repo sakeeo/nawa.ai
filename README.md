@@ -40,7 +40,11 @@ make dev
 ```
 
 `make dev` builds and starts the stack, including Langfuse (profile `observability`).
-`make dev-lite` starts it without Langfuse. Open http://localhost:3000.
+`make dev-lite` starts it without Langfuse (leave the `LANGFUSE_HOST`, `LANGFUSE_PUBLIC_KEY`,
+`LANGFUSE_SECRET_KEY` and `LANGFUSE_INIT_*` values in `.env` empty then). With `make dev`,
+Langfuse creates its project and first user from those values on first start, and every LLM call
+is traced; sign in at http://localhost:3100 with `LANGFUSE_INIT_USER_EMAIL` and
+`LANGFUSE_INIT_USER_PASSWORD`. Open http://localhost:3000.
 
 On first start the API logs a one-time setup token:
 
