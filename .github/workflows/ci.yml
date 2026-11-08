@@ -75,5 +75,5 @@ jobs:
     needs: [api, web]
     steps:
       - uses: actions/checkout@v4
-      - run: docker build apps/api
+      - run: docker build --build-context seed=seed apps/api
       - run: docker build apps/web

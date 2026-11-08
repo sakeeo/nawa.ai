@@ -38,3 +38,34 @@ def test_load_creates_tables_and_is_idempotent(database: dict[str, str]) -> None
         assert [r["ingredient_id"] for r in zero] == [1]
     finally:
         asyncio.run(run_sql(admin_dsn, f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)'))
+
+
+async def test_load_demo_data_creates_the_database_and_loads_it(
+    database: dict[str, str],
+) -> None:
+    from nawa.core.config import Settings
+    from nawa.workspace.demo import load_demo_data
+
+    name = f"noesantara_demo_{secrets.token_hex(4)}"
+    base = make_url(database["owner"])
+    admin_dsn = to_asyncpg_dsn(base.set(database="postgres").render_as_string(hide_password=False))
+    settings = Settings(
+        _env_file=None,  # type: ignore[call-arg]
+        database_url="x",
+        redis_url="x",
+        jwt_secret="s" * 32,
+        database_owner_url=database["owner"],
+        demo_database_name=name,
+    )
+    try:
+        assert await load_demo_data(settings) is True
+        target = to_asyncpg_dsn(base.set(database=name).render_as_string(hide_password=False))
+        conn = await asyncpg.connect(target)
+        try:
+            assert await conn.fetchval("SELECT count(*) FROM outlets") == 5
+        finally:
+            await conn.close()
+    finally:
+        conn = await asyncpg.connect(admin_dsn)
+        await conn.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        await conn.close()

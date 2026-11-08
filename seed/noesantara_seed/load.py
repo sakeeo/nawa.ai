@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 import asyncpg
 
@@ -86,3 +87,24 @@ async def load_async(url: str, seed: int = 42) -> dict[str, int]:
 def load(url: str, seed: int = 42) -> dict[str, int]:
     """Drop and recreate the demo tables, then bulk-load them. Safe to run twice."""
     return asyncio.run(load_async(url, seed))
+
+
+_DB_NAME = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
+
+
+def validate_database_name(name: str) -> str:
+    if not _DB_NAME.match(name):
+        raise ValueError(f"Invalid database name: {name!r}")
+    return name
+
+
+async def ensure_database(admin_url: str, name: str) -> None:
+    """Create the demo database when it does not exist yet. Needs CREATEDB rights."""
+    validate_database_name(name)
+    conn = await asyncpg.connect(to_asyncpg_dsn(admin_url))
+    try:
+        exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", name)
+        if not exists:
+            await conn.execute(f'CREATE DATABASE "{name}"')
+    finally:
+        await conn.close()

@@ -57,6 +57,11 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "S"]
 python_version = "3.12"
 strict = true
 packages = ["nawa"]
+mypy_path = "../../seed"
+
+[[tool.mypy.overrides]]
+module = ["asyncpg", "asyncpg.*"]
+ignore_missing_imports = true
 
 [tool.importlinter]
 root_package = "nawa"

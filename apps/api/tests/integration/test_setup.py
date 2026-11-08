@@ -176,3 +176,40 @@ async def test_weak_admin_password_is_rejected(
     token = await ensure_setup_token(sessionmaker)
     assert token
     assert (await client.post(SETUP, json=payload(token, password="short"))).status_code == 422
+
+
+async def test_setup_loads_demo_data_only_when_requested(
+    client: httpx.AsyncClient,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    loaded: list[bool] = []
+
+    async def fake_load(settings: object) -> bool:
+        loaded.append(True)
+        return True
+
+    monkeypatch.setattr("nawa.workspace.api_setup.load_demo_data", fake_load)
+    token = await ensure_setup_token(sessionmaker)
+    assert token
+    assert (await client.post(SETUP, json=payload(token))).status_code == 201
+    assert loaded == []
+
+
+async def test_setup_schedules_demo_load_when_requested(
+    client: httpx.AsyncClient,
+    sessionmaker: async_sessionmaker[AsyncSession],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    loaded: list[bool] = []
+
+    async def fake_load(settings: object) -> bool:
+        loaded.append(True)
+        return True
+
+    monkeypatch.setattr("nawa.workspace.api_setup.load_demo_data", fake_load)
+    token = await ensure_setup_token(sessionmaker)
+    assert token
+    response = await client.post(SETUP, json=payload(token, load_demo_data=True))
+    assert response.status_code == 201
+    assert loaded == [True]

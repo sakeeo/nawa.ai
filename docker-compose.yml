@@ -43,7 +43,10 @@ services:
       start_period: 10s
 
   migrate:
-    build: ./apps/api
+    build:
+      context: ./apps/api
+      additional_contexts:
+        seed: ./seed
     image: nawa-api:dev
     env_file: .env
     command: ["alembic", "upgrade", "head"]
@@ -53,7 +56,10 @@ services:
 
   api:
     <<: *restart
-    build: ./apps/api
+    build:
+      context: ./apps/api
+      additional_contexts:
+        seed: ./seed
     image: nawa-api:dev
     env_file: .env
     environment:

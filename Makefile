@@ -15,7 +15,7 @@ down:
 	$(COMPOSE) --profile observability --profile local-llm down
 
 seed:
-	@echo "seed: implemented in Phase 0 slice D"
+	$(COMPOSE) run --rm --no-deps api python -m nawa.workspace.demo
 
 test:
 	cd apps/api && uv run pytest

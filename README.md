@@ -79,6 +79,7 @@ model weights.
 | Command | Purpose |
 |---|---|
 | `make dev` | Start the full stack |
+| `make seed` | Create the `noesantara` demo database and load the demo data |
 | `make test` | API and web tests |
 | `make lint` | ruff, mypy, import-linter, eslint, tsc |
 | `make offline-smoke` | Offline acceptance check |

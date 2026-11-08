@@ -28,7 +28,7 @@ Penanda `{NAMA}` di badan dokumen merujuk ke nilai di tabel Bagian 0.
 | `{UJI_CAKUPAN}` | `cd apps/api && uv run pytest --cov=nawa` |
 | `{CEK_TIPE}` | `make lint` (ruff, ruff format, mypy, import-linter, eslint, `tsc --noEmit`); per sisi: `cd apps/api && uv run mypy`, `cd apps/web && pnpm typecheck` |
 | `{UJI_E2E}` | Belum ada E2E browser. Pengganti fase ini: `make offline-smoke` (offline) dan alur manual di `{CHECKLIST_MANUAL}` |
-| `{BUILD}` | `make dev` (compose penuh dengan Langfuse), `make dev-lite` (tanpa Langfuse), atau `docker compose build` |
+| `{BUILD}` | `make dev` (compose penuh dengan Langfuse), `make dev-lite` (tanpa Langfuse), atau `docker compose build` (image API memerlukan konteks bernama `seed`, sudah diatur di compose; untuk `docker build` manual: `--build-context seed=seed`) |
 | `{CAKUPAN_KRITIS}` | Usulan awal, belum disetujui pemilik: ≥ 90% baris untuk modul keamanan dan isolasi (`nawa.core.security`, RBAC dan RLS di `nawa.workspace`, SQL Guard bila sudah ada) |
 | `{CHECKLIST_MANUAL}` | `docs/RELEASE_CHECKLIST.md` |
 | `{MODE_CHAT_AGEN}` | `ultracave` (pesan chat singkat; lihat 0.6) |
@@ -111,7 +111,7 @@ docker run -d --rm --name nawa-test-pg -e POSTGRES_USER=ci_owner -e POSTGRES_PAS
 cd apps/api && TEST_DATABASE_OWNER_URL=postgresql+asyncpg://ci_owner:ci-owner-password@127.0.0.1:55432/postgres uv run pytest
 ```
 
-**Perintah.** Python memakai `uv`, frontend memakai `pnpm`. `make dev`, `make dev-lite`, `make down`, `make test`, `make lint`, `make offline-smoke`; `make seed` dan `make eval` belum berfungsi.
+**Perintah.** Python memakai `uv`, frontend memakai `pnpm`. `make dev`, `make dev-lite`, `make down`, `make test`, `make lint`, `make offline-smoke`; `make seed` memuat data demo; `make eval` belum berfungsi.
 
 **Graf kode (graphify).** Bila `graphify-out/graph.json` ada, jalankan `graphify query "<pertanyaan>"` sebelum menyisir banyak berkas; untuk satu pencarian terarah, pencarian biasa cukup. Setelah perubahan struktur, jalankan `graphify update .` (hanya AST, tanpa biaya LLM). Rebuild penuh (`/graphify .`) memakai LLM: tanya pengguna dulu.
 

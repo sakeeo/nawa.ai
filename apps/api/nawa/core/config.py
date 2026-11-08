@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     database_url: str
     database_owner_url: str | None = None
     redis_url: str
+    demo_database_name: str = "noesantara"
 
     jwt_secret: str = Field(min_length=32)
     access_token_ttl_seconds: int = 900
