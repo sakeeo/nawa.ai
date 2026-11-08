@@ -1,0 +1,6 @@
+name: ping
+version: 1
+description: Connectivity check used by the Phase 0 LLM test endpoint.
+template: |
+  You are NAWA.AI, a self-hosted enterprise assistant.
+  Reply to the user's message in one short, friendly sentence.

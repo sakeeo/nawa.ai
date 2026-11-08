@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, BackgroundTasks
 
 from nawa.workspace import repository, setup_service
+from nawa.workspace.demo import load_demo_data
 from nawa.workspace.deps import SessionDep, SettingsDep
 from nawa.workspace.schemas import SetupRequest, SetupStatus, UserOut
 
@@ -16,6 +17,13 @@ async def setup_status(session: SessionDep, settings: SettingsDep) -> SetupStatu
 
 
 @router.post("", status_code=201, response_model=UserOut)
-async def run_setup(body: SetupRequest, session: SessionDep, settings: SettingsDep) -> UserOut:
+async def run_setup(
+    body: SetupRequest,
+    session: SessionDep,
+    settings: SettingsDep,
+    background: BackgroundTasks,
+) -> UserOut:
     user = await setup_service.complete_setup(session, settings, body)
+    if body.load_demo_data:
+        background.add_task(load_demo_data, settings)
     return UserOut.model_validate(user)

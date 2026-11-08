@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     database_url: str
     database_owner_url: str | None = None
     redis_url: str
+    demo_database_name: str = "noesantara"
 
     jwt_secret: str = Field(min_length=32)
     access_token_ttl_seconds: int = 900
@@ -25,6 +26,19 @@ class Settings(BaseSettings):
     login_window_seconds: int = 300
 
     deepseek_api_key: str = ""
+    llm_model: str = "deepseek/deepseek-chat"
+    llm_fallback_model: str = ""
+    ollama_chat_model: str = "qwen2.5:7b"
+    ollama_api_base: str = "http://ollama:11434"
+    embedding_model: str = "ollama/bge-m3"
+
+    langfuse_host: str = ""
+    langfuse_public_key: str = ""
+    langfuse_secret_key: SecretStr | None = None
+
+    @property
+    def local_llm_model(self) -> str:
+        return f"ollama/{self.ollama_chat_model}"
 
     @property
     def cookie_secure(self) -> bool:

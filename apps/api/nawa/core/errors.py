@@ -49,6 +49,12 @@ class AuthenticationError(DomainError):
     title = "Unauthorized"
 
 
+class ServiceUnavailableError(DomainError):
+    status_code = 503
+    code = "service_unavailable"
+    title = "Service Unavailable"
+
+
 class RateLimitedError(DomainError):
     status_code = 429
     code = "rate_limited"

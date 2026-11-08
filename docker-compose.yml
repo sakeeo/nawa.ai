@@ -43,7 +43,10 @@ services:
       start_period: 10s
 
   migrate:
-    build: ./apps/api
+    build:
+      context: ./apps/api
+      additional_contexts:
+        seed: ./seed
     image: nawa-api:dev
     env_file: .env
     command: ["alembic", "upgrade", "head"]
@@ -53,7 +56,10 @@ services:
 
   api:
     <<: *restart
-    build: ./apps/api
+    build:
+      context: ./apps/api
+      additional_contexts:
+        seed: ./seed
     image: nawa-api:dev
     env_file: .env
     environment:
@@ -132,11 +138,13 @@ services:
       timeout: 5s
       retries: 20
 
-  # No healthcheck: the mc binary is not guaranteed in minio/minio images; Langfuse retries S3 connections.
+  # No healthcheck: the mc binary is not guaranteed in the minio image; Langfuse retries S3 connections.
+  # minio/minio is no longer published on Docker Hub or Quay; this is the image Langfuse's own
+  # compose file uses.
   minio:
     <<: *restart
     profiles: ["observability"]
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     entrypoint: sh
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
     environment:

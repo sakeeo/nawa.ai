@@ -41,8 +41,8 @@ jobs:
         with:
           python-version: "3.12"
       - run: uv sync --frozen
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
+      - run: uv run ruff check . ../../seed
+      - run: uv run ruff format --check . ../../seed
       - run: uv run mypy
       - run: uv run lint-imports
       - run: uv run pytest --cov=nawa
@@ -75,5 +75,5 @@ jobs:
     needs: [api, web]
     steps:
       - uses: actions/checkout@v4
-      - run: docker build apps/api
+      - run: docker build --build-context seed=seed apps/api
       - run: docker build apps/web

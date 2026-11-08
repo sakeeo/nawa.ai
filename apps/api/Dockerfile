@@ -9,10 +9,12 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY nawa ./nawa
+# Demo data loader: passed as the named build context `seed` (see docker-compose.yml).
+COPY --from=seed . ./seed
 RUN uv sync --frozen --no-dev
 
 RUN useradd --system --create-home nawa
 USER nawa
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH=/app/seed
 EXPOSE 8000
 CMD ["uvicorn", "nawa.main:create_app", "--factory", "--host", "0.0.0.0", "--port", "8000"]
