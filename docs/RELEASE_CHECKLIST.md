@@ -8,7 +8,7 @@ Phase 0 acceptance (T0-21) uses the "Phase 0" items.
 - [x] `cd apps/api && uv run pytest` with `TEST_DATABASE_OWNER_URL` set: zero skipped, zero failed. (2026-11-08, 64900ea: 167 passed)
 - [x] `make lint` clean (ruff, mypy, import-linter, eslint, tsc). (2026-11-08, 64900ea)
 - [x] `cd apps/web && pnpm test && pnpm build` clean. (2026-11-08, 64900ea: 9 passed)
-- [ ] CI is green on the release branch.
+- [x] CI is green on the release branch. (2026-11-08, 0672896: api, web, images all green)
 - [x] `make offline-smoke` passes: the local model answers and outbound access fails. (2026-11-08, a79b1a9)
 
 ## Manual: clean install
@@ -29,6 +29,6 @@ Phase 0 acceptance (T0-21) uses the "Phase 0" items.
 
 ## Release
 
-- [ ] Documents match behaviour (see `docs/WORKFLOW.md` section 0.4).
-- [ ] Feature branch merged into `master` with a merge commit.
-- [ ] Version and commit hash recorded in `roadmap/PHASE <n> - <Name>/PROGRESS.md`.
+- [x] Documents match behaviour (see `docs/WORKFLOW.md` section 0.4). (2026-11-08: README and .env.example updated for Langfuse; other docs checked)
+- [x] Feature branch merged into `master` with a merge commit. (2026-11-08, f415ac2)
+- [x] Version and commit hash recorded in `roadmap/PHASE <n> - <Name>/PROGRESS.md`. (2026-11-08, Phase 0 = 0.1.0 at 0672896)
