@@ -14,6 +14,18 @@ Planted anomaly: in August 2025 the beef supplier fails to deliver to the Bandun
 Beef stock is zero, all 12 beef dishes are unavailable, and the outlet's sales drop by
 about 30%. Phases 2 and 3 use this story.
 
-The ~30 demo documents (kitchen and food-safety SOPs, goods-receiving SOP, complaint and
-refund policy, HR policy, supplier contracts, monthly reports, and two prompt-injection
-documents) are added at the start of Phase 1.
+## Demo documents (`noesantara_docs/`)
+
+34 Indonesian documents of the fictional Resto Noesantara: kitchen and food-safety SOPs,
+goods-receiving SOPs, complaint and refund policy (including the "makanan tidak layak"
+procedure used by the demo story), HR policy, supplier contracts, monthly outlet reports whose
+figures are computed from the seed, a table-heavy menu guide, a very long handbook, and two
+prompt-injection memos (`injection-*.md`). Formats are mostly `.md`, with `.txt`, `.docx` and
+`.pdf` to exercise every extractor.
+
+- `scripts/generate-demo-docs.py` wrote them with DeepSeek (synthetic data only, manual run,
+  refuses `OFFLINE_MODE=true`). Every file was then reviewed by hand.
+- `MANIFEST.yaml` is the contract: per file `filename`, `title`, `kind`, `language`, `sha256`
+  and `facts`. The facts come from the generator briefs, not from model output.
+- **The documents are fixtures.** Regenerating them changes the golden dataset (T1-13), so do
+  not regenerate; after a hand edit run the script with `--manifest-only` to refresh hashes.
