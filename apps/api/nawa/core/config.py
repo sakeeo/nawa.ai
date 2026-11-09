@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     chat_limit_per_minute: int = 20
     reranker_enabled: bool = False
     reranker_url: str = ""
+    reranker_timeout_seconds: float = 10.0
 
     langfuse_host: str = ""
     langfuse_public_key: str = ""

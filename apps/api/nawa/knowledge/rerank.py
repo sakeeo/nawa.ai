@@ -79,5 +79,5 @@ async def rerank_with_fallback(
 
 def get_reranker(settings: Settings, client: httpx.AsyncClient) -> Reranker:
     if settings.reranker_enabled and settings.reranker_url:
-        return TEIReranker(settings.reranker_url, client)
+        return TEIReranker(settings.reranker_url, client, timeout=settings.reranker_timeout_seconds)
     return NoopReranker()

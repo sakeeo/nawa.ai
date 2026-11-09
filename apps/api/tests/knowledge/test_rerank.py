@@ -41,12 +41,15 @@ def _client(handler) -> httpx.AsyncClient:  # type: ignore[no-untyped-def]
 
 
 def _settings(**kw: object) -> Settings:
+    # Explicit defaults: the repo .env may enable the reranker and leaks in via the environment.
+    values: dict[str, object] = {"reranker_enabled": False, "reranker_url": ""}
+    values.update(kw)
     return Settings(
         _env_file=None,
         database_url="x",
         redis_url="x",
         jwt_secret="s" * 32,
-        **kw,  # type: ignore[arg-type]
+        **values,  # type: ignore[arg-type]
     )
 
 
@@ -148,3 +151,10 @@ async def test_get_reranker_follows_settings() -> None:
         assert isinstance(get_reranker(_settings(reranker_url="http://r"), client), NoopReranker)
         on = get_reranker(_settings(reranker_enabled=True, reranker_url="http://r"), client)
         assert isinstance(on, TEIReranker)
+        slow = get_reranker(
+            _settings(
+                reranker_enabled=True, reranker_url="http://r", reranker_timeout_seconds=99.0
+            ),
+            client,
+        )
+        assert isinstance(slow, TEIReranker) and slow._timeout == 99.0

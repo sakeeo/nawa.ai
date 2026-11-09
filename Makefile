@@ -41,6 +41,7 @@ eval-experiments:
 	mkdir -p evals/results && chmod a+rwx evals/results
 	$(COMPOSE) run --rm \
 		-e EVALS_DIR=/evals -e DEMO_DOCS_DIR=/app/seed/noesantara_docs -e GIT_COMMIT=$(shell git rev-parse --short HEAD) \
+		-e RERANKER_TIMEOUT_SECONDS=$(or $(RERANK_TIMEOUT),180) \
 		-v "$(CURDIR)/evals:/evals" -v "$(CURDIR)/seed/noesantara_docs:/app/seed/noesantara_docs:ro" \
 		api python -m nawa.evaluation experiments --name $(or $(NAME),all) $(if $(LIMIT),--limit $(LIMIT))
 
