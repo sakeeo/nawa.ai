@@ -17,6 +17,9 @@ dependencies = [
   "pyyaml>=6.0.3",
   "langfuse>=4.7,<5",
   "pgvector>=0.5.1",
+  "pypdf>=7.0.0",
+  "python-docx>=1.2.0",
+  "filetype>=1.2.0",
 ]
 
 [dependency-groups]
