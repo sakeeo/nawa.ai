@@ -1,0 +1,44 @@
+# The five Phase 1 experiments (spec 4.6). Every arm runs against the same golden set and the
+# same synthetic demo documents. `requires_env` lists variables an arm needs; without them the
+# arm is skipped and the reason is recorded. API arms are the only ones that send data out.
+experiments:
+  - name: chunking
+    title: Chunking strategy
+    metrics: [recall_at_5, faithfulness]
+    arms:
+      - config: {name: chunk-fixed, chunker: fixed, retrieval_strategy: hybrid}
+      - config: {name: chunk-heading, chunker: heading, retrieval_strategy: hybrid}
+
+  - name: retrieval
+    title: Retrieval strategy
+    metrics: [recall_at_5, mrr]
+    arms:
+      - config: {name: retrieval-vector, retrieval_strategy: vector, generate: false, judge_enabled: false}
+      - config: {name: retrieval-keyword, retrieval_strategy: keyword, generate: false, judge_enabled: false}
+      - config: {name: retrieval-hybrid, retrieval_strategy: hybrid, generate: false, judge_enabled: false}
+
+  - name: reranking
+    title: Reranking
+    note: Needs the `reranker` compose profile (RERANKER_ENABLED=true, RERANKER_URL).
+    metrics: [mrr, p50_plan_ms, p95_plan_ms]
+    arms:
+      - config: {name: rerank-off, retrieval_strategy: hybrid, use_rerank: false, generate: false, judge_enabled: false}
+      - config: {name: rerank-on, retrieval_strategy: hybrid, use_rerank: true, generate: false, judge_enabled: false}
+
+  - name: embedding
+    title: Embedding model
+    note: The API arm sends the synthetic demo documents to the provider. mistral-embed returns 1024 dimensions, matching the vector column.
+    metrics: [recall_at_5, p50_plan_ms, p95_plan_ms]
+    arms:
+      - config: {name: embed-bge-m3, embedding_model: ollama/bge-m3, generate: false, judge_enabled: false}
+      - config: {name: embed-mistral-embed, embedding_model: mistral/mistral-embed, generate: false, judge_enabled: false}
+        requires_env: [MISTRAL_API_KEY]
+
+  - name: generator
+    title: Generator model
+    note: Local arm runs on the host CPU/GPU; note RAM and CPU used while it runs (not measured by the script).
+    metrics: [faithfulness, p50_ttft_ms, p95_ttft_ms]
+    arms:
+      - config: {name: gen-qwen2.5-7b, generator_model: "ollama/qwen2.5:7b"}
+      - config: {name: gen-deepseek-chat, generator_model: deepseek/deepseek-chat}
+        requires_env: [DEEPSEEK_API_KEY]

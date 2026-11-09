@@ -31,10 +31,15 @@ def mrr(reciprocal_ranks: Iterable[float]) -> float:
 
 def p95(values: Iterable[float]) -> float:
     """Nearest-rank 95th percentile; 0.0 for no values."""
+    return percentile(values, 95)
+
+
+def percentile(values: Iterable[float], pct: float) -> float:
+    """Nearest-rank percentile (0 < pct <= 100); 0.0 for no values."""
     ordered = sorted(values)
     if not ordered:
         return 0.0
-    return ordered[max(math.ceil(0.95 * len(ordered)) - 1, 0)]
+    return ordered[max(math.ceil(pct / 100 * len(ordered)) - 1, 0)]
 
 
 @dataclass(frozen=True)

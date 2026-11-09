@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 COMPOSE := docker compose
 
-.PHONY: dev dev-lite down seed test lint eval offline-smoke
+.PHONY: dev dev-lite down seed test lint eval eval-experiments eval-report offline-smoke
 
 dev:
 	@test -f .env || (echo "Missing .env: copy .env.example and set secrets" && exit 1)
@@ -33,6 +33,25 @@ eval:
 		-e EVALS_DIR=/evals -e DEMO_DOCS_DIR=/app/seed/noesantara_docs \
 		-v "$(CURDIR)/evals:/evals:ro" -v "$(CURDIR)/seed/noesantara_docs:/app/seed/noesantara_docs:ro" \
 		api python -m nawa.evaluation run --config $(or $(CONFIG),default) $(if $(LIMIT),--limit $(LIMIT))
+
+# Runs one experiment (NAME=chunking|retrieval|reranking|embedding|generator|all) from
+# evals/experiments.yaml and saves JSON to evals/results/. Online, synthetic data only; takes
+# hours on CPU for `all`, so run one at a time. The reranking experiment needs the reranker profile.
+eval-experiments:
+	mkdir -p evals/results
+	$(COMPOSE) run --rm \
+		-e EVALS_DIR=/evals -e DEMO_DOCS_DIR=/app/seed/noesantara_docs -e GIT_COMMIT=$(shell git rev-parse --short HEAD) \
+		-v "$(CURDIR)/evals:/evals" -v "$(CURDIR)/seed/noesantara_docs:/app/seed/noesantara_docs:ro" \
+		api python -m nawa.evaluation experiments --name $(or $(NAME),all) $(if $(LIMIT),--limit $(LIMIT))
+
+# Renders docs/evaluation-report.md and docs/images/eval-*.svg from evals/results/.
+eval-report:
+	mkdir -p docs/images
+	$(COMPOSE) run --rm \
+		-e EVALS_DIR=/evals -e DEMO_DOCS_DIR=/app/seed/noesantara_docs \
+		-v "$(CURDIR)/evals:/evals:ro" -v "$(CURDIR)/seed/noesantara_docs:/app/seed/noesantara_docs:ro" \
+		-v "$(CURDIR)/docs:/out" \
+		api python -m nawa.evaluation report --output /out/evaluation-report.md
 
 offline-smoke:
 	./scripts/offline-smoke.sh

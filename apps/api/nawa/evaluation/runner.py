@@ -200,7 +200,9 @@ async def _evaluate_item(
         ranked = meta.ranked if meta else []
         passages = meta.passages if meta else {}
         gate = meta.gate if meta else "unknown"
+        best_similarity = meta.best_similarity if meta else None
     else:
+        plan_began = time.perf_counter()
         plan = await plan_context(
             session,
             gateway,
@@ -215,9 +217,13 @@ async def _evaluate_item(
         ranked = plan.ranked_refs()
         passages = plan.passages()
         gate = plan.gate.reason
+        best_similarity = plan.gate.best_similarity
     answer = refusal_text if refused else "".join(tokens)
 
-    metrics: dict[str, Any] = {"gate": gate, "refused": refused}
+    metrics: dict[str, Any] = {"gate": gate, "refused": refused, "best_similarity": best_similarity}
+    if not config.generate:
+        # Retrieval-only runs time embedding + search + (optional) rerank in one go.
+        metrics["plan_ms"] = (time.perf_counter() - plan_began) * 1000
     if done:
         metrics["ttft_ms"] = done.ttft_ms
         metrics["total_ms"] = done.total_ms
@@ -426,6 +432,7 @@ def _summarize(
     answerable = [p for p in per_item if p["kind"] == "answerable" and not p.get("error")]
     faith = [p["faithfulness"] for p in answerable if "faithfulness" in p]
     ttft = [p["ttft_ms"] for p in per_item if p.get("ttft_ms") is not None and not p.get("refused")]
+    plan = [p["plan_ms"] for p in per_item if p.get("plan_ms") is not None]
     metrics: dict[str, float] = {
         "recall_at_5": m.mean(p["recall_at_5"] for p in answerable),
         "mrr": m.mrr(p["reciprocal_rank"] for p in answerable),
@@ -434,6 +441,9 @@ def _summarize(
         "citation_accuracy": m.citation_accuracy(results),
         "faithfulness": m.mean(faith),
         "p95_ttft_ms": m.p95(ttft),
+        "p50_ttft_ms": m.percentile(ttft, 50),
+        "p50_plan_ms": m.percentile(plan, 50),
+        "p95_plan_ms": m.percentile(plan, 95),
     }
     counts = Counter(r.kind for r in results)
     return EvalRunSummary(
