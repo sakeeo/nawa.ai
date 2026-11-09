@@ -34,3 +34,10 @@ def test_unknown_prompt_raises(tmp_path: Path) -> None:
 def test_bundled_ping_prompt_exists() -> None:
     prompt = PromptRegistry().get("ping")
     assert prompt.name == "ping" and prompt.version >= 1
+
+
+@pytest.mark.parametrize("name", ["answer", "refuse"])
+def test_bundled_rag_prompts_load(name: str) -> None:
+    prompt = PromptRegistry().get(name, version=1)
+    assert prompt.version == 1 and prompt.template.strip()
+    prompt.render()  # no unescaped placeholders

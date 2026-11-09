@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator
+from contextlib import aclosing
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, TypeVar
 
@@ -27,6 +29,31 @@ class ChatResult:
 
 
 @dataclass(frozen=True)
+class StreamUsage:
+    """Final usage totals of a streamed completion, yielded last by a client."""
+
+    prompt_tokens: int
+    completion_tokens: int
+    cost_usd: float
+
+
+@dataclass(frozen=True)
+class TokenEvent:
+    text: str
+
+
+@dataclass(frozen=True)
+class DoneEvent:
+    model: str
+    prompt_tokens: int
+    completion_tokens: int
+    cost_usd: float
+
+
+StreamEvent = TokenEvent | DoneEvent
+
+
+@dataclass(frozen=True)
 class TraceInfo:
     name: str
     user_id: str | None = None
@@ -49,6 +76,15 @@ class LLMClient(Protocol):
         metadata: dict[str, Any],
         api_base: str | None,
     ) -> ChatResult: ...
+
+    def stream(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, str]],
+        metadata: dict[str, Any],
+        api_base: str | None,
+    ) -> AsyncGenerator[str | StreamUsage, None]: ...
 
     async def embed(
         self, *, model: str, inputs: list[str], api_base: str | None
@@ -84,6 +120,46 @@ class LiteLLMClient:
             completion_tokens=int(usage.completion_tokens),
             cost_usd=cost,
         )
+
+    async def stream(
+        self,
+        *,
+        model: str,
+        messages: list[dict[str, str]],
+        metadata: dict[str, Any],
+        api_base: str | None,
+    ) -> AsyncGenerator[str | StreamUsage, None]:
+        response = await litellm.acompletion(
+            model=model,
+            messages=messages,
+            metadata=metadata,
+            api_base=api_base,
+            stream=True,
+            stream_options={"include_usage": True},
+        )
+        chunks: list[Any] = []
+        async for chunk in response:
+            chunks.append(chunk)
+            if chunk.choices:
+                delta = chunk.choices[0].delta.content
+                if delta:
+                    yield delta
+        usage = next((c.usage for c in reversed(chunks) if getattr(c, "usage", None)), None)
+        if usage is not None:
+            try:
+                cost = float(
+                    litellm.completion_cost(
+                        model=model,
+                        prompt=" ".join(m["content"] for m in messages),
+                        completion="".join(
+                            c.choices[0].delta.content or "" for c in chunks if c.choices
+                        ),
+                    )
+                    or 0.0
+                )
+            except Exception:  # unknown model price (e.g. a local model) costs nothing here
+                cost = 0.0
+            yield StreamUsage(int(usage.prompt_tokens), int(usage.completion_tokens), cost)
 
     async def embed(
         self, *, model: str, inputs: list[str], api_base: str | None
@@ -153,6 +229,55 @@ class LLMGateway:
                 raise
             except Exception as exc:  # provider error: try the next model
                 last_error = exc
+        raise LLMUnavailableError("All configured models failed") from last_error
+
+    async def chat_stream(
+        self, messages: list[ChatMessage], trace: TraceInfo
+    ) -> AsyncGenerator[StreamEvent, None]:
+        """Stream tokens, then one DoneEvent.
+
+        Falls back to the next model only before the first token; a failure after that
+        raises, because switching models mid-answer would splice two different answers.
+        """
+        payload = [{"role": m.role, "content": m.content} for m in messages]
+        last_error: Exception | None = None
+        for model in self._candidates():
+            started = False
+            emitted: list[str] = []
+            usage: StreamUsage | None = None
+            try:
+                async with aclosing(
+                    self._client.stream(
+                        model=model,
+                        messages=payload,
+                        metadata=self._metadata(trace),
+                        api_base=self._api_base(model),
+                    )
+                ) as stream:
+                    async for item in stream:
+                        if isinstance(item, StreamUsage):
+                            usage = item
+                        elif item:
+                            started = True
+                            emitted.append(item)
+                            yield TokenEvent(item)
+            except OfflineModeError:
+                raise
+            except Exception as exc:  # provider error
+                if started:
+                    raise LLMUnavailableError("The model failed while answering") from exc
+                last_error = exc
+                continue
+            text = "".join(emitted)
+            yield DoneEvent(
+                model=model,
+                prompt_tokens=usage.prompt_tokens
+                if usage
+                else -(-sum(len(m.content) for m in messages) // 4),
+                completion_tokens=usage.completion_tokens if usage else -(-len(text) // 4),
+                cost_usd=usage.cost_usd if usage else 0.0,
+            )
+            return
         raise LLMUnavailableError("All configured models failed") from last_error
 
     async def chat_json(self, messages: list[ChatMessage], schema: type[T], trace: TraceInfo) -> T:
