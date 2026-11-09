@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     rag_keyword_k: int = 30
     rag_rrf_k: int = 60
     rag_final_k: int = 20
+    rag_rerank_top_n: int = 20
+    rag_context_k: int = 5
+    reranker_enabled: bool = False
+    reranker_url: str = ""
 
     langfuse_host: str = ""
     langfuse_public_key: str = ""

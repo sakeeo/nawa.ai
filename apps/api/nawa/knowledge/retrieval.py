@@ -35,6 +35,7 @@ class Candidate:
     vector_rank: int | None
     keyword_rank: int | None
     rrf_score: float
+    rerank_score: float | None = None
 
 
 def rrf_fuse(

@@ -64,6 +64,12 @@ The token stops working once setup is complete.
 Compose profile `local-llm` pulls the local chat model and the BGE-M3 embedding model into
 Ollama. Embeddings are always local.
 
+Compose profile `reranker` starts a cross-encoder reranker (text-embeddings-inference with
+`BAAI/bge-reranker-v2-m3`, about 2.3 GB of weights cached in a volume). Start it with
+`docker compose --profile reranker up -d reranker` and set `RERANKER_ENABLED=true` in `.env`.
+Without it, retrieval uses the fused ranking only; if the reranker is down at query time the
+same fallback applies and a warning is logged.
+
 ### Offline mode
 
 Set `OFFLINE_MODE=true` in `.env`. Every external provider is blocked and the local model is
