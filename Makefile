@@ -55,4 +55,4 @@ eval-report:
 		api python -m nawa.evaluation report --output /out/evaluation-report.md
 
 offline-smoke:
-	./scripts/offline-smoke.sh
+	bash scripts/offline-smoke.sh
