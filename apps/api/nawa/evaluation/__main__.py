@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import importlib
 import os
 import platform
 import sys
@@ -30,6 +31,15 @@ from nawa.evaluation.runner import (
     run_evaluation,
 )
 from nawa.intelligence.gateway import LiteLLMClient
+
+
+def _register_models() -> None:
+    """Load every ORM model so foreign keys (knowledge -> workspaces) resolve in this process.
+
+    Dynamic on purpose: evaluation must not import another module's models statically.
+    """
+    for module in ("nawa.workspace.models", "nawa.knowledge.models"):
+        importlib.import_module(module)
 
 
 def _repo_root() -> Path:
@@ -245,6 +255,7 @@ async def _report(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _register_models()
     parser = argparse.ArgumentParser(prog="python -m nawa.evaluation")
     sub = parser.add_subparsers(dest="command", required=True)
     run = sub.add_parser("run", help="run the golden dataset against one configuration")

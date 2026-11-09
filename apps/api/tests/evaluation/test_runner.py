@@ -58,7 +58,12 @@ def test_preconditions_refuse_offline_and_missing_key(monkeypatch: pytest.Monkey
         )
         is None
     )
-    assert "RERANKER" in (check_preconditions(RunConfig("x", use_rerank=True), _settings()) or "")
+    assert "RERANKER" in (
+        check_preconditions(
+            RunConfig("x", use_rerank=True), _settings(reranker_enabled=False, reranker_url="")
+        )
+        or ""
+    )
 
 
 def test_config_loading_and_unknown_keys(tmp_path: Path) -> None:

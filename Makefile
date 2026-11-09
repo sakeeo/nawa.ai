@@ -38,7 +38,7 @@ eval:
 # evals/experiments.yaml and saves JSON to evals/results/. Online, synthetic data only; takes
 # hours on CPU for `all`, so run one at a time. The reranking experiment needs the reranker profile.
 eval-experiments:
-	mkdir -p evals/results
+	mkdir -p evals/results && chmod a+rwx evals/results
 	$(COMPOSE) run --rm \
 		-e EVALS_DIR=/evals -e DEMO_DOCS_DIR=/app/seed/noesantara_docs -e GIT_COMMIT=$(shell git rev-parse --short HEAD) \
 		-v "$(CURDIR)/evals:/evals" -v "$(CURDIR)/seed/noesantara_docs:/app/seed/noesantara_docs:ro" \
@@ -46,7 +46,7 @@ eval-experiments:
 
 # Renders docs/evaluation-report.md and docs/images/eval-*.svg from evals/results/.
 eval-report:
-	mkdir -p docs/images
+	mkdir -p docs/images && chmod a+rwx docs docs/images
 	$(COMPOSE) run --rm \
 		-e EVALS_DIR=/evals -e DEMO_DOCS_DIR=/app/seed/noesantara_docs \
 		-v "$(CURDIR)/evals:/evals:ro" -v "$(CURDIR)/seed/noesantara_docs:/app/seed/noesantara_docs:ro" \
