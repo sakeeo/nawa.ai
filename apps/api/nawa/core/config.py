@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     max_upload_bytes: int = 20 * 1024 * 1024
     max_pdf_pages: int = 200
 
+    rag_vector_k: int = 30
+    rag_keyword_k: int = 30
+    rag_rrf_k: int = 60
+    rag_final_k: int = 20
+
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: SecretStr | None = None
