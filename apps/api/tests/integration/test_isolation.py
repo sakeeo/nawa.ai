@@ -52,11 +52,15 @@ async def test_every_workspace_route_rejects_another_tenants_workspace(
         "/api/v1/workspaces/{workspace_id}/documents/{document_id}",
         "/api/v1/workspaces/{workspace_id}/documents/{document_id}/retry",
         "/api/v1/workspaces/{workspace_id}/chunks/{chunk_id}",
+        "/api/v1/workspaces/{workspace_id}/chat",
+        "/api/v1/workspaces/{workspace_id}/conversations",
+        "/api/v1/workspaces/{workspace_id}/conversations/{conversation_id}",
+        "/api/v1/workspaces/{workspace_id}/messages/{message_id}/feedback",
     }
     assert sum(len(r.methods) for r in routes) >= 5
     for route in routes:
         path = route.path.replace("{workspace_id}", str(ws_b))
-        for param in ("user_id", "document_id", "chunk_id"):
+        for param in ("user_id", "document_id", "chunk_id", "conversation_id", "message_id"):
             path = path.replace("{" + param + "}", str(uuid.uuid4()))
         for method in route.methods:
             response = await manager_a.client.request(

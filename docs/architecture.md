@@ -23,6 +23,7 @@ cookie is echoed in the `X-CSRF-Token` header on every state-changing request.
 | `nawa.core` | settings, database engine and RLS context, errors, security helpers, audit log, rate limiting | nothing else in `nawa` |
 | `nawa.workspace` | users, workspaces, memberships, invites, refresh tokens, instance settings, first-run setup | `core` |
 | `nawa.intelligence` | LLM gateway, offline policy, prompt registry, tracing | `core`, and `workspace` only for the admin LLM test route |
+| `nawa.knowledge` | documents, ingestion worker, hybrid retrieval, reranker, relevance gate, citations, chat, feedback | `core`, `intelligence`; `workspace` only for role checks and instance settings (two documented import exceptions) |
 
 Boundaries are enforced by import-linter in CI: business modules are independent of each other,
 and `core` imports no business module. A module uses another module only through its service
@@ -64,6 +65,26 @@ All model calls go through `LLMGateway` in `nawa.intelligence.gateway`:
 
 Prompts live in `apps/api/nawa/intelligence/prompts/<name>.v<version>.yaml`. The admin route
 `POST /api/v1/llm/chat` runs one message through the gateway for connectivity checks.
+
+## Knowledge API (Phase 1)
+
+All routes live under `/api/v1/workspaces/{workspace_id}`; unsafe methods need the CSRF header.
+
+| Method | Path | Minimum role |
+|---|---|---|
+| POST | `/documents` (multipart) | manager |
+| GET | `/documents`, `/documents/{id}` | viewer |
+| POST | `/documents/{id}/retry` | manager |
+| DELETE | `/documents/{id}` | manager |
+| GET | `/chunks/{chunk_id}` | viewer |
+| POST | `/chat` (Server-Sent Events) | member |
+| GET | `/conversations`, `/conversations/{id}` | member (own only) |
+| POST | `/messages/{id}/feedback` | member (own conversations) |
+
+`/chat` streams `data: <json>` events with a `type` field: `meta`, `token`, `citations`
+(or `refusal` instead of tokens when the documents do not answer), `done`, and `error`. The
+assistant message is stored just before `done`; a client that disconnects leaves only its own
+question behind. Chat is limited to `CHAT_LIMIT_PER_MINUTE` questions per user (default 20).
 
 ## Data model (Phase 0)
 

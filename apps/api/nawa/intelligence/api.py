@@ -3,18 +3,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
-from nawa.core.config import Settings
 from nawa.core.errors import ConflictError
-from nawa.intelligence.gateway import ChatMessage, LiteLLMClient, LLMClient, LLMGateway, TraceInfo
+from nawa.intelligence.deps import get_llm_client, model_for_provider
+from nawa.intelligence.gateway import ChatMessage, LLMClient, LLMGateway, TraceInfo
 from nawa.intelligence.prompts import PromptRegistry
 from nawa.workspace import repository
 from nawa.workspace.deps import AdminUser, SessionDep, SettingsDep, require_csrf
 
 router = APIRouter(prefix="/api/v1/llm", tags=["llm"], dependencies=[Depends(require_csrf)])
-
-
-def get_llm_client() -> LLMClient:
-    return LiteLLMClient()
 
 
 class ChatRequest(BaseModel):
@@ -27,11 +23,6 @@ class ChatResponse(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     cost_usd: float
-
-
-def model_for_provider(settings: Settings, provider: str) -> str:
-    """The wizard stores a provider; the concrete model name comes from the environment."""
-    return settings.llm_model if provider == "deepseek" else settings.local_llm_model
 
 
 @router.post("/chat")

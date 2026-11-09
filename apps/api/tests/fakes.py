@@ -96,3 +96,26 @@ class FakeLLMClient:
     ) -> list[list[float]]:
         self.calls.append({"kind": "embed", "model": model, "inputs": inputs, "api_base": api_base})
         return [fake_embedding(text) for text in inputs]
+
+
+# Concept groups: texts and questions that share a group point the same way in vector space,
+# so a question can match "by meaning" without sharing a single word with the chunk.
+GROUPS = [
+    {"chiller", "pendingin", "kulkas"},
+    {"refund", "pengembalian", "uang"},
+    {"sapi", "daging", "beef"},
+    {"cuti", "libur"},
+]
+
+
+class ConceptEmbedder(FakeLLMClient):
+    async def embed(self, *, model, inputs, api_base):  # type: ignore[no-untyped-def]
+        self.calls.append({"kind": "embed", "model": model, "inputs": inputs, "api_base": api_base})
+        out = []
+        for value in inputs:
+            words = set(value.lower().replace(".", " ").split())
+            vector = [0.001] * 1024
+            for i, group in enumerate(GROUPS):
+                vector[i] += len(words & group)
+            out.append(vector)
+        return out

@@ -8,24 +8,43 @@ from typing import Annotated
 
 from arq.connections import RedisSettings
 from fastapi import APIRouter, Depends, File, Response, UploadFile
+from fastapi.responses import StreamingResponse
+from redis.asyncio import Redis
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from nawa.core.audit import record_audit
-from nawa.core.db import apply_rls
+from nawa.core.db import apply_rls, get_sessionmaker
 from nawa.core.errors import (
     ConflictError,
     NotFoundError,
     PayloadTooLargeError,
+    RateLimitedError,
     UnsupportedMediaTypeError,
     ValidationFailedError,
 )
+from nawa.core.ratelimit import RateLimiter, get_redis
+from nawa.intelligence.deps import get_llm_client, model_for_provider
+from nawa.intelligence.gateway import LLMClient, LLMGateway
 from nawa.knowledge import repository
+from nawa.knowledge.chat_service import stream_chat
 from nawa.knowledge.extract import UnsupportedDocumentError, detect_kind
+from nawa.knowledge.guardrails import sanitize_question
 from nawa.knowledge.models import Document
 from nawa.knowledge.queue import arq_redis_settings, enqueue_ingest
-from nawa.knowledge.schemas import ChunkOut, DocumentOut
+from nawa.knowledge.schemas import (
+    ChatRequest,
+    ChunkOut,
+    CitationOut,
+    ConversationDetail,
+    ConversationOut,
+    DocumentOut,
+    FeedbackIn,
+    MessageOut,
+)
 from nawa.knowledge.storage import FileStorage
-from nawa.workspace.deps import ManagerCtx, SettingsDep, ViewerCtx, require_csrf
+from nawa.workspace import repository as workspace_repository
+from nawa.workspace.deps import ManagerCtx, MemberCtx, SettingsDep, ViewerCtx, require_csrf
 
 logger = logging.getLogger("nawa.knowledge.api")
 
@@ -228,3 +247,124 @@ async def get_chunk(chunk_id: uuid.UUID, ctx: ViewerCtx) -> ChunkOut:
         heading=chunk.heading,
         text=chunk.text,
     )
+
+
+TITLE_CHARS = 60
+
+
+@router.post("/chat")
+async def chat(
+    body: ChatRequest,
+    ctx: MemberCtx,
+    settings: SettingsDep,
+    client: Annotated[LLMClient, Depends(get_llm_client)],
+    maker: Annotated[async_sessionmaker[AsyncSession], Depends(get_sessionmaker)],
+    redis: Annotated[Redis, Depends(get_redis)],
+) -> StreamingResponse:
+    question = sanitize_question(body.question)
+    if not question:
+        raise ValidationFailedError("The question is empty.")
+    limiter = RateLimiter(redis, window_seconds=60)
+    key = f"chat:{ctx.user.id}"
+    if await limiter.is_blocked(key, settings.chat_limit_per_minute):
+        raise RateLimitedError("Too many questions. Try again in a minute.")
+    await limiter.hit(key)
+
+    session = ctx.session
+    instance = await workspace_repository.get_instance_settings(session)
+    if not instance.setup_completed or instance.ai_provider is None:
+        raise ConflictError("Setup has not been completed")
+    if body.conversation_id is None:
+        title = question if len(question) <= TITLE_CHARS else question[: TITLE_CHARS - 1] + "…"
+        conversation = await repository.create_conversation(
+            session, ctx.workspace_id, ctx.user.id, title
+        )
+    else:
+        found = await repository.get_conversation(
+            session, ctx.workspace_id, ctx.user.id, body.conversation_id
+        )
+        if found is None:
+            raise NotFoundError("Conversation not found")
+        conversation = found
+    conversation_id = conversation.id
+    await repository.add_message(session, ctx.workspace_id, conversation_id, "user", question)
+    await session.commit()
+
+    gateway = LLMGateway(client, settings, model=model_for_provider(settings, instance.ai_provider))
+    stream = stream_chat(
+        maker=maker,
+        gateway=gateway,
+        settings=settings,
+        workspace_id=ctx.workspace_id,
+        user_id=ctx.user.id,
+        is_admin=ctx.user.is_admin,
+        conversation_id=conversation_id,
+        message_id=uuid.uuid4(),
+        question=question,
+    )
+    return StreamingResponse(
+        stream,
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/conversations", response_model=list[ConversationOut])
+async def list_conversations(ctx: MemberCtx) -> list[ConversationOut]:
+    rows = await repository.list_conversations(ctx.session, ctx.workspace_id, ctx.user.id)
+    return [
+        ConversationOut(id=c.id, title=c.title, created_at=c.created_at, last_message_at=last)
+        for c, last in rows
+    ]
+
+
+@router.get("/conversations/{conversation_id}", response_model=ConversationDetail)
+async def get_conversation(conversation_id: uuid.UUID, ctx: MemberCtx) -> ConversationDetail:
+    conversation = await repository.get_conversation(
+        ctx.session, ctx.workspace_id, ctx.user.id, conversation_id
+    )
+    if conversation is None:
+        raise NotFoundError("Conversation not found")
+    rows = await repository.list_messages(
+        ctx.session, ctx.workspace_id, ctx.user.id, conversation_id
+    )
+    return ConversationDetail(
+        id=conversation.id,
+        title=conversation.title,
+        messages=[
+            MessageOut(
+                id=m.id,
+                role=m.role,
+                content=m.content,
+                refused=m.refused,
+                created_at=m.created_at,
+                feedback=feedback,
+                citations=[
+                    CitationOut(
+                        marker=c.marker,
+                        chunk_id=chunk.id,
+                        document_id=chunk.document_id,
+                        filename=filename,
+                        page=chunk.page,
+                        section_path=chunk.section_path,
+                    )
+                    for c, chunk, filename in cites
+                ],
+            )
+            for m, cites, feedback in rows
+        ],
+    )
+
+
+@router.post("/messages/{message_id}/feedback", status_code=204)
+async def give_feedback(message_id: uuid.UUID, body: FeedbackIn, ctx: MemberCtx) -> Response:
+    message = await repository.get_own_assistant_message(
+        ctx.session, ctx.workspace_id, ctx.user.id, message_id
+    )
+    if message is None:
+        raise NotFoundError("Message not found")
+    await repository.upsert_feedback(
+        ctx.session, ctx.workspace_id, message_id, ctx.user.id, body.value, body.comment
+    )
+    await ctx.session.commit()
+    return Response(status_code=204)

@@ -86,7 +86,11 @@ modules = [
   "nawa.evaluation",
 ]
 # Role checks (ViewerCtx, ManagerCtx) live in nawa.workspace.deps; duplicating them would fork RBAC.
-ignore_imports = ["nawa.knowledge.api -> nawa.workspace.deps"]
+# instance_settings (setup state, AI provider) is owned by workspace; chat reads it read-only.
+ignore_imports = [
+  "nawa.knowledge.api -> nawa.workspace.deps",
+  "nawa.knowledge.api -> nawa.workspace.repository",
+]
 
 [[tool.importlinter.contracts]]
 name = "Core does not import business modules"

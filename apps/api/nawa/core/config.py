@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     rag_context_k: int = 5
     rag_min_similarity: float = 0.35
     rag_context_max_tokens: int = 3000
+    chat_limit_per_minute: int = 20
     reranker_enabled: bool = False
     reranker_url: str = ""
 
