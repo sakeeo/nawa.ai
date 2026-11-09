@@ -1,3 +1,5 @@
+import type { ChunkOut, DocumentOut } from "@/lib/types";
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -35,7 +37,7 @@ function describeDetail(detail: unknown): string {
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(init.headers as Record<string, string> | undefined),
   };
   if (!SAFE_METHODS.has(method)) {
@@ -61,6 +63,19 @@ function withBody(method: string, body?: unknown): RequestInit {
 }
 
 export const api = {
+  listDocuments: (workspaceId: string) => apiFetch<DocumentOut[]>(`/workspaces/${workspaceId}/documents`),
+  // The browser sets the multipart Content-Type (with its boundary) for FormData.
+  uploadDocument: (workspaceId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiFetch<DocumentOut>(`/workspaces/${workspaceId}/documents`, { method: "POST", body: form });
+  },
+  deleteDocument: (workspaceId: string, documentId: string) =>
+    apiFetch<void>(`/workspaces/${workspaceId}/documents/${documentId}`, { method: "DELETE" }),
+  retryDocument: (workspaceId: string, documentId: string) =>
+    apiFetch<DocumentOut>(`/workspaces/${workspaceId}/documents/${documentId}/retry`, { method: "POST" }),
+  getChunk: (workspaceId: string, chunkId: string) =>
+    apiFetch<ChunkOut>(`/workspaces/${workspaceId}/chunks/${chunkId}`),
   get: <T>(path: string) => apiFetch<T>(path),
   post: <T>(path: string, body?: unknown) => apiFetch<T>(path, withBody("POST", body)),
   patch: <T>(path: string, body?: unknown) => apiFetch<T>(path, withBody("PATCH", body)),

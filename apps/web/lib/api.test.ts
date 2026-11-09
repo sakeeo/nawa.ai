@@ -80,4 +80,54 @@ describe("api client", () => {
   it("ApiError message falls back to title", () => {
     expect(new ApiError(500, "Server Error", "").message).toBe("Server Error");
   });
+
+  it("uploads a document as FormData without a manual content type, with CSRF", async () => {
+    stubCookie("csrf_token=abc123");
+    const fetchMock = mockFetch(202, { id: "d1", filename: "a.md", status: "queued" });
+    const file = new File(["# hi"], "a.md", { type: "text/markdown" });
+    const result = await api.uploadDocument("ws1", file);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(url).toBe("/api/v1/workspaces/ws1/documents");
+    expect(init.method).toBe("POST");
+    expect(init.body).toBeInstanceOf(FormData);
+    expect((init.body as FormData).get("file")).toBeInstanceOf(File);
+    expect(Object.keys(headers).map((h) => h.toLowerCase())).not.toContain("content-type");
+    expect(headers["X-CSRF-Token"]).toBe("abc123");
+    expect(result.status).toBe("queued");
+  });
+
+  it("maps upload errors to ApiError with status and detail", async () => {
+    stubCookie("csrf_token=t");
+    mockFetch(409, { title: "Conflict", detail: "This file is already uploaded." }, "application/problem+json");
+    await expect(api.uploadDocument("ws1", new File(["x"], "a.md"))).rejects.toMatchObject({
+      status: 409,
+      detail: "This file is already uploaded.",
+    });
+  });
+
+  it("lists documents, deletes and retries with the right verbs and paths", async () => {
+    stubCookie("csrf_token=t");
+    const docs = [{ id: "d1", filename: "a.md", status: "ready", page_count: null }];
+    const fetchMock = mockFetch(200, docs);
+    await expect(api.listDocuments("ws1")).resolves.toEqual(docs);
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+    await api.deleteDocument("ws1", "d1");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(docs[0]), { status: 202 }));
+    await api.retryDocument("ws1", "d1");
+    const calls = fetchMock.mock.calls as [string, RequestInit][];
+    expect(calls.map(([u, i]) => `${i.method ?? "GET"} ${u}`)).toEqual([
+      "GET /api/v1/workspaces/ws1/documents",
+      "DELETE /api/v1/workspaces/ws1/documents/d1",
+      "POST /api/v1/workspaces/ws1/documents/d1/retry",
+    ]);
+  });
+
+  it("still sends JSON content type for normal bodies", async () => {
+    stubCookie("csrf_token=t");
+    const fetchMock = mockFetch(200, {});
+    await api.post("/x", { a: 1 });
+    const headers = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
+    expect(headers["Content-Type"]).toBe("application/json");
+  });
 });

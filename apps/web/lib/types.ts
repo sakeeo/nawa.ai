@@ -28,3 +28,24 @@ export type ChatResponse = {
   completion_tokens: number;
   cost_usd: number;
 };
+
+export type DocumentStatus = "queued" | "processing" | "ready" | "failed";
+export type DocumentOut = {
+  id: string;
+  filename: string;
+  mime: string;
+  size_bytes: number;
+  status: DocumentStatus;
+  error: string | null;
+  page_count: number | null;
+  created_at: string;
+};
+export type ChunkOut = {
+  id: string;
+  document_id: string;
+  filename: string;
+  page: number | null;
+  section_path: string | null;
+  heading: string | null;
+  text: string;
+};
