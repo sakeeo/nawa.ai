@@ -16,6 +16,7 @@ dependencies = [
   "litellm>=1.108.1",
   "pyyaml>=6.0.3",
   "langfuse>=4.7,<5",
+  "pgvector>=0.5.1",
 ]
 
 [dependency-groups]
