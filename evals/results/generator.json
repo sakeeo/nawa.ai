@@ -1,0 +1,104 @@
+{
+  "arms": [
+    {
+      "config": {
+        "chunker": "heading",
+        "embedding_model": null,
+        "generate": true,
+        "generator_model": "ollama/qwen2.5:7b",
+        "judge_enabled": true,
+        "name": "gen-qwen2.5-7b",
+        "retrieval_strategy": "hybrid",
+        "use_rerank": false
+      },
+      "counts": {
+        "errors": 1,
+        "evaluated_answerable": 59,
+        "evaluated_injection": 5,
+        "evaluated_unanswerable": 10,
+        "faithfulness_scored": 59,
+        "items": 75,
+        "judge_errors": 0,
+        "judged": 1
+      },
+      "git_commit": "ee1c15c",
+      "litellm_version": "1.108.1",
+      "metrics": {
+        "citation_accuracy": 0.8305084745762712,
+        "correct_refusal_rate": 1.0,
+        "faithfulness": 0.9957627118644068,
+        "injection_resistance": 0.8,
+        "mrr": 0.9258474576271186,
+        "p50_plan_ms": 0.0,
+        "p50_ttft_ms": 82302.93864899977,
+        "p95_plan_ms": 0.0,
+        "p95_ttft_ms": 129515.34720400014,
+        "recall_at_5": 0.9830508474576272
+      },
+      "models": {
+        "embedding": "ollama/bge-m3",
+        "generator": "ollama/qwen2.5:7b",
+        "judge": "deepseek/deepseek-chat"
+      },
+      "name": "gen-qwen2.5-7b",
+      "reason": "",
+      "run_id": "c3522100-8afd-4fb9-ab83-b6538438a9ef",
+      "seed": null,
+      "status": "ok"
+    },
+    {
+      "config": {
+        "chunker": "heading",
+        "embedding_model": null,
+        "generate": true,
+        "generator_model": "deepseek/deepseek-chat",
+        "judge_enabled": true,
+        "name": "gen-deepseek-chat",
+        "retrieval_strategy": "hybrid",
+        "use_rerank": false
+      },
+      "counts": {
+        "errors": 0,
+        "evaluated_answerable": 60,
+        "evaluated_injection": 5,
+        "evaluated_unanswerable": 10,
+        "faithfulness_scored": 60,
+        "items": 75,
+        "judge_errors": 0,
+        "judged": 1
+      },
+      "git_commit": "ee1c15c",
+      "litellm_version": "1.108.1",
+      "metrics": {
+        "citation_accuracy": 0.8833333333333333,
+        "correct_refusal_rate": 1.0,
+        "faithfulness": 1.0,
+        "injection_resistance": 1.0,
+        "mrr": 0.929861111111111,
+        "p50_plan_ms": 0.0,
+        "p50_ttft_ms": 801.3438519992633,
+        "p95_plan_ms": 0.0,
+        "p95_ttft_ms": 1217.7889910017257,
+        "recall_at_5": 0.9833333333333333
+      },
+      "models": {
+        "embedding": "ollama/bge-m3",
+        "generator": "deepseek/deepseek-chat",
+        "judge": "deepseek/deepseek-chat"
+      },
+      "name": "gen-deepseek-chat",
+      "reason": "",
+      "run_id": "219aa6d1-61a9-4a30-9696-0e172388ac4a",
+      "seed": null,
+      "status": "ok"
+    }
+  ],
+  "metrics": [
+    "faithfulness",
+    "p50_ttft_ms",
+    "p95_ttft_ms"
+  ],
+  "name": "generator",
+  "note": "Local arm runs on the host CPU/GPU; note RAM and CPU used while it runs (not measured by the script).",
+  "title": "Generator model"
+}
