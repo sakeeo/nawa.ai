@@ -29,3 +29,6 @@ prompt-injection memos (`injection-*.md`). Formats are mostly `.md`, with `.txt`
   and `facts`. The facts come from the generator briefs, not from model output.
 - **The documents are fixtures.** Regenerating them changes the golden dataset (T1-13), so do
   not regenerate; after a hand edit run the script with `--manifest-only` to refresh hashes.
+- The golden dataset `evals/golden.yaml` (75 questions) points at these files and at fact ids
+  `<filename>#<index>` in the manifest; `make eval` and the experiments ingest them into the
+  `nawa-eval` workspace.

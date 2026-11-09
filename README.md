@@ -7,8 +7,10 @@ NAWA.AI answers questions from company documents, analyses business data in natu
 and runs AI agents with human approval, all on the company's own infrastructure. Data never
 leaves the host, and the platform can run fully offline with local models.
 
-> Status: **Phase 0, Foundation.** First-run setup wizard, authentication, workspaces with
-> row-level security, an offline-aware LLM gateway with Langfuse tracing, and demo data.
+> Status: **Phase 1, Knowledge Intelligence.** Document upload and background ingestion, hybrid
+> retrieval with citations, an AI Assistant that refuses when the documents do not answer, and an
+> evaluation engine with a published [report](docs/evaluation-report.md). Phase 0 (setup wizard,
+> authentication, workspaces with row-level security, offline-aware LLM gateway, demo data) is included.
 
 ## Why self-hosted
 
@@ -22,9 +24,12 @@ default, and external providers are opt-in and blocked entirely in offline mode.
 Web (Next.js) --/api/v1--> API (FastAPI, modular monolith)
                              |- core          config, database and RLS context, errors, audit
                              |- workspace     users, workspaces, members, invites, setup
-                             '- intelligence  LLM gateway (LiteLLM), offline policy, prompts, tracing
+                             |- intelligence  LLM gateway (LiteLLM), offline policy, prompts, tracing
+                             |- knowledge     documents, ingestion, hybrid retrieval, chat, citations
+                             '- evaluation    golden dataset, metrics, experiments, report
                                     |
-              PostgreSQL 16 + pgvector, Redis, Ollama (local LLM + BGE-M3), Langfuse
+              PostgreSQL 16 + pgvector, Redis (+ ARQ worker), Ollama (local LLM + BGE-M3),
+              optional reranker, Langfuse
 ```
 
 See [docs/architecture.md](docs/architecture.md) and the [ADRs](docs/adr/).
@@ -84,6 +89,19 @@ model weights.
 | Minimum (no GPU) | 4 vCPU, 16 GB RAM, 50 GB disk |
 | Recommended | 8 vCPU, 32 GB RAM, GPU with 16-24 GB VRAM |
 
+## How the assistant answers
+
+Upload documents on the Knowledge page (managers) and ask questions on the AI Assistant page (members).
+Each question is embedded locally, matched against document chunks by vector and keyword search, and merged
+with Reciprocal Rank Fusion. If the best match is not similar enough (`RAG_MIN_SIMILARITY`, 0.60), the
+assistant says the documents do not answer instead of guessing. Otherwise the top passages go to the model,
+which must cite them as `[1]`, `[2]`; each citation links to the exact passage. Document text is treated as
+data: instructions inside a document are never followed. Ingestion, retrieval and the local chat model all
+run without internet, so `OFFLINE_MODE=true` keeps working; only the evaluation judge and the optional API
+experiment arms use an external provider.
+
+Measured quality, targets and limitations: [docs/evaluation-report.md](docs/evaluation-report.md).
+
 ## Development
 
 | Command | Purpose |
@@ -93,6 +111,8 @@ model weights.
 | `make test` | API and web tests |
 | `make lint` | ruff, mypy, import-linter, eslint, tsc |
 | `make eval` | Run the golden dataset (`evals/golden.yaml`) and print the quality metrics |
+| `make eval-experiments NAME=<x>` | Run one experiment (`chunking`, `retrieval`, `reranking`, `embedding`, `generator`, or `all`) and save JSON to `evals/results/` |
+| `make eval-report` | Render `docs/evaluation-report.md` and `docs/images/eval-*.svg` from the saved results |
 | `make offline-smoke` | Offline acceptance check |
 
 `make eval` ingests the demo documents into a persistent `nawa-eval` workspace and scores 75
@@ -102,7 +122,15 @@ It needs the running stack (database, Ollama embeddings) and `DEEPSEEK_API_KEY` 
 synthetic data only, and refuses to run when `OFFLINE_MODE=true`. Use `make eval LIMIT=5` for a quick
 check. Results are stored in `eval_runs` / `eval_results`.
 
+The experiments are defined in `evals/experiments.yaml`; each arm records its configuration, commit and
+models. They take hours on CPU (a local 7B generator needs about 1.6 minutes per question), so run one
+at a time. The `reranking` experiment needs `docker compose --profile reranker up -d reranker`,
+`RERANKER_ENABLED=true`, and a long `RERANKER_TIMEOUT_SECONDS` (the make target sets 180). The embedding
+API arm is skipped unless `MISTRAL_API_KEY` is set. Only synthetic data is sent to external providers.
+
 The `worker` service (ARQ on Redis) runs background ingestion and shares the `uploads` volume with the API.
+The optional `reranker` service (compose profile `reranker`, about 2.3 GB of weights, cached in a volume)
+runs a cross-encoder; on CPU it takes about 2 s per passage, so it is off by default.
 
 Python uses `uv`; the frontend uses `pnpm`. Tests never call a real LLM; they use a fake client.
 
@@ -114,13 +142,16 @@ they are skipped. The demo data loader lives in [seed/](seed/README.md).
 - [ADR 0001: Modular monolith](docs/adr/0001-modular-monolith.md)
 - [ADR 0002: pgvector instead of a separate vector database](docs/adr/0002-pgvector.md)
 - [ADR 0007: Self-hosted and local-first](docs/adr/0007-self-hosted-local-first.md)
+- [ADR 0008: Heading-aware chunking](docs/adr/0008-chunking-strategy.md)
+- [ADR 0009: Hybrid search with rank fusion, optional reranker](docs/adr/0009-hybrid-search-and-fusion.md)
+- [ADR 0010: Vectors in PostgreSQL, narrow module-boundary exceptions](docs/adr/0010-vector-store-and-retrieval-boundaries.md)
 
 ## Roadmap
 
 | Phase | Scope |
 |---|---|
-| 0 | Foundation (current) |
-| 1 | Knowledge intelligence: RAG with citations and evaluation |
+| 0 | Foundation |
+| 1 | Knowledge intelligence: RAG with citations and evaluation (current) |
 | 2 | Business intelligence: safe text-to-SQL with charts |
 | 3 | Multi-agent analysis with human-in-the-loop |
 | 4 | Scheduled workflows with approvals and audit |
