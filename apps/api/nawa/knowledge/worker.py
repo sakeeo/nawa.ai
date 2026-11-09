@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from nawa.core.config import get_settings
 from nawa.intelligence.gateway import LiteLLMClient, LLMGateway
+from nawa.knowledge.ingest import ingest_document
 from nawa.knowledge.queue import arq_redis_settings
 from nawa.knowledge.storage import FileStorage
 
@@ -30,10 +31,14 @@ async def on_shutdown(ctx: dict[str, Any]) -> None:
 
 
 async def ingest_job(ctx: dict[str, Any], workspace_id: str, document_id: str) -> None:
-    """Shim over `nawa.knowledge.ingest.ingest_document`, wired in T1-05."""
-    uuid.UUID(workspace_id)
-    uuid.UUID(document_id)
-    raise NotImplementedError("ingestion pipeline is added in T1-05")
+    await ingest_document(
+        ctx["sessionmaker"],
+        ctx["storage"],
+        ctx["gateway"],
+        workspace_id=uuid.UUID(workspace_id),
+        document_id=uuid.UUID(document_id),
+        max_pages=ctx["settings"].max_pdf_pages,
+    )
 
 
 class WorkerSettings:

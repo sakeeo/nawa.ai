@@ -1,8 +1,24 @@
+import hashlib
 import re
 from collections.abc import AsyncGenerator
 from typing import Any
 
 from nawa.intelligence.gateway import ChatResult, StreamUsage
+
+EMBEDDING_DIM = 1024
+
+
+def fake_embedding(text: str) -> list[float]:
+    """Deterministic 1024-dim unit vector that differs by input. Same text, same vector."""
+    out: list[float] = []
+    counter = 0
+    while len(out) < EMBEDDING_DIM:
+        digest = hashlib.sha256(f"{counter}:{text}".encode()).digest()
+        out.extend((b - 127.5) / 127.5 for b in digest)
+        counter += 1
+    vector = out[:EMBEDDING_DIM]
+    norm = sum(v * v for v in vector) ** 0.5
+    return [v / norm for v in vector]
 
 
 class FakeLLMClient:
@@ -79,4 +95,4 @@ class FakeLLMClient:
         self, *, model: str, inputs: list[str], api_base: str | None
     ) -> list[list[float]]:
         self.calls.append({"kind": "embed", "model": model, "inputs": inputs, "api_base": api_base})
-        return [[0.0, 0.0, 0.0, 0.0] for _ in inputs]
+        return [fake_embedding(text) for text in inputs]

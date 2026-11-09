@@ -41,19 +41,23 @@ async def test_every_workspace_route_rejects_another_tenants_workspace(
         for r in iter_api_routes(app.routes)
         if isinstance(r, APIRoute) and "{workspace_id}" in r.path
     ]
-    # Exact route set: 5 route objects across 4 paths. Any removal fails loudly; a new
+    # Exact route set across the paths below. Any removal fails loudly; a new
     # route is picked up automatically by the loop below.
     assert {r.path for r in routes} == {
         "/api/v1/workspaces/{workspace_id}",
         "/api/v1/workspaces/{workspace_id}/members",
         "/api/v1/workspaces/{workspace_id}/members/{user_id}",
         "/api/v1/workspaces/{workspace_id}/invites",
+        "/api/v1/workspaces/{workspace_id}/documents",
+        "/api/v1/workspaces/{workspace_id}/documents/{document_id}",
+        "/api/v1/workspaces/{workspace_id}/documents/{document_id}/retry",
+        "/api/v1/workspaces/{workspace_id}/chunks/{chunk_id}",
     }
     assert sum(len(r.methods) for r in routes) >= 5
     for route in routes:
-        path = route.path.replace("{workspace_id}", str(ws_b)).replace(
-            "{user_id}", str(uuid.uuid4())
-        )
+        path = route.path.replace("{workspace_id}", str(ws_b))
+        for param in ("user_id", "document_id", "chunk_id"):
+            path = path.replace("{" + param + "}", str(uuid.uuid4()))
         for method in route.methods:
             response = await manager_a.client.request(
                 method, path, headers=manager_a.headers, json={}

@@ -37,6 +37,18 @@ class ConflictError(DomainError):
     title = "Conflict"
 
 
+class PayloadTooLargeError(DomainError):
+    status_code = 413
+    code = "payload_too_large"
+    title = "Payload Too Large"
+
+
+class UnsupportedMediaTypeError(DomainError):
+    status_code = 415
+    code = "unsupported_media_type"
+    title = "Unsupported Media Type"
+
+
 class ValidationFailedError(DomainError):
     status_code = 422
     code = "validation_failed"
