@@ -80,6 +80,9 @@ export default function WorkspacePage() {
         <Link href={`/workspaces/${id}/knowledge`} className="underline">
           Knowledge
         </Link>
+        <Link href={`/workspaces/${id}/assistant`} className="underline">
+          AI Assistant
+        </Link>
       </nav>
 
       <h2 className="mt-6 text-lg font-medium">Members</h2>

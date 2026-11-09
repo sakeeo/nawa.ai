@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiError, api } from "@/lib/api";
+import { ApiError, api, streamChat } from "@/lib/api";
 
 function mockFetch(status: number, body: unknown, contentType = "application/json") {
   const fn = vi.fn().mockResolvedValue(
@@ -129,5 +129,59 @@ describe("api client", () => {
     await api.post("/x", { a: 1 });
     const headers = (fetchMock.mock.calls[0][1] as RequestInit).headers as Record<string, string>;
     expect(headers["Content-Type"]).toBe("application/json");
+  });
+
+  it("streams chat events with CSRF, JSON body and the abort signal", async () => {
+    stubCookie("csrf_token=abc123");
+    const sse = `data: ${JSON.stringify({ type: "token", text: "hi" })}\n\n`;
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(sse, { status: 200, headers: { "Content-Type": "text/event-stream" } }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    const events = [];
+    for await (const event of streamChat("ws1", "Apa?", "c1", controller.signal)) events.push(event);
+    expect(events).toEqual([{ type: "token", text: "hi" }]);
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/workspaces/ws1/chat");
+    expect(JSON.parse(init.body as string)).toEqual({ question: "Apa?", conversation_id: "c1" });
+    expect((init.headers as Record<string, string>)["X-CSRF-Token"]).toBe("abc123");
+    expect(init.signal).toBe(controller.signal);
+  });
+
+  it("turns a non-2xx chat response into ApiError before any event", async () => {
+    stubCookie("csrf_token=t");
+    mockFetch(429, { title: "Too Many Requests", detail: "Too many questions." }, "application/problem+json");
+    const iterate = async () => {
+      for await (const _ of streamChat("ws1", "x", null)) void _;
+    };
+    await expect(iterate()).rejects.toMatchObject({ status: 429, detail: "Too many questions." });
+  });
+
+  it("aborts the chat request when the signal fires", async () => {
+    stubCookie("csrf_token=t");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) =>
+          init.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError"))),
+        ),
+      ),
+    );
+    const controller = new AbortController();
+    const pending = (async () => {
+      for await (const _ of streamChat("ws1", "x", null, controller.signal)) void _;
+    })();
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("posts feedback with value and comment", async () => {
+    stubCookie("csrf_token=t");
+    const fetchMock = mockFetch(204, undefined);
+    await api.sendFeedback("ws1", "m1", -1, "kurang jelas");
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/workspaces/ws1/messages/m1/feedback");
+    expect(JSON.parse(init.body as string)).toEqual({ value: -1, comment: "kurang jelas" });
   });
 });
