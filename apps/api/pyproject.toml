@@ -90,7 +90,12 @@ modules = [
 ignore_imports = [
   "nawa.knowledge.api -> nawa.workspace.deps",
   "nawa.knowledge.api -> nawa.workspace.repository",
+  # The evaluation drives the real pipeline through public entry points only (ADR in T1-15).
+  "nawa.evaluation.runner -> nawa.knowledge.answer",
+  "nawa.evaluation.runner -> nawa.knowledge.corpus",
+  "nawa.evaluation.runner -> nawa.knowledge.rerank",
 ]
+
 
 [[tool.importlinter.contracts]]
 name = "Core does not import business modules"

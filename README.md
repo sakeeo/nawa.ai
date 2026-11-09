@@ -92,7 +92,15 @@ model weights.
 | `make seed` | Create the `noesantara` demo database and load the demo data |
 | `make test` | API and web tests |
 | `make lint` | ruff, mypy, import-linter, eslint, tsc |
+| `make eval` | Run the golden dataset (`evals/golden.yaml`) and print the quality metrics |
 | `make offline-smoke` | Offline acceptance check |
+
+`make eval` ingests the demo documents into a persistent `nawa-eval` workspace and scores 75
+golden questions (60 answerable, 10 unanswerable, 5 prompt-injection traps) on Recall@5, MRR,
+faithfulness, citation accuracy, refusal rate, injection resistance and P95 time-to-first-token.
+It needs the running stack (database, Ollama embeddings) and `DEEPSEEK_API_KEY` for the judge, uses
+synthetic data only, and refuses to run when `OFFLINE_MODE=true`. Use `make eval LIMIT=5` for a quick
+check. Results are stored in `eval_runs` / `eval_results`.
 
 The `worker` service (ARQ on Redis) runs background ingestion and shares the `uploads` volume with the API.
 

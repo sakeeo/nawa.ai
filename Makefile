@@ -25,8 +25,14 @@ lint:
 	cd apps/api && uv run ruff check . ../../seed && uv run ruff format --check . ../../seed && uv run mypy && uv run lint-imports
 	cd apps/web && pnpm lint && pnpm typecheck
 
+# Runs the golden dataset against the default config inside the api image. Needs the stack's
+# database and Ollama (embeddings) plus DEEPSEEK_API_KEY for the judge; refuses to run offline.
+# CONFIG=<name|path> and LIMIT=<n> are optional, e.g. `make eval CONFIG=default LIMIT=5`.
 eval:
-	@echo "eval: implemented in Phase 1"
+	$(COMPOSE) run --rm \
+		-e EVALS_DIR=/evals -e DEMO_DOCS_DIR=/app/seed/noesantara_docs \
+		-v "$(CURDIR)/evals:/evals:ro" -v "$(CURDIR)/seed/noesantara_docs:/app/seed/noesantara_docs:ro" \
+		api python -m nawa.evaluation run --config $(or $(CONFIG),default) $(if $(LIMIT),--limit $(LIMIT))
 
 offline-smoke:
 	./scripts/offline-smoke.sh

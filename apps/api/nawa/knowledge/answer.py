@@ -36,12 +36,24 @@ class Citation:
 
 
 @dataclass(frozen=True)
+class RankedRef:
+    """One candidate in final ranking order; `marker` is set when it went into the context."""
+
+    chunk_id: uuid.UUID
+    document_id: uuid.UUID
+    similarity: float
+    marker: int | None
+
+
+@dataclass(frozen=True)
 class MetaEvent:
     retrieved: int
     reranked: bool
     best_similarity: float | None
     gate: str
     injection_flags: dict[int, list[str]] = field(default_factory=dict)
+    ranked: list[RankedRef] = field(default_factory=list)
+    passages: dict[int, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -124,6 +136,54 @@ def _elapsed_ms(start: float) -> float:
     return max((time.perf_counter() - start) * 1000, 0.0)
 
 
+@dataclass(frozen=True)
+class ContextPlan:
+    fused: list[Candidate]
+    ordered: list[Candidate]
+    reranked: bool
+    gate: GateDecision
+    context: list[ContextPassage]
+
+    def ranked_refs(self) -> list[RankedRef]:
+        marker_of = {p.candidate.chunk_id: p.marker for p in self.context}
+        return [
+            RankedRef(c.chunk_id, c.document_id, c.similarity, marker_of.get(c.chunk_id))
+            for c in self.ordered
+        ]
+
+    def passages(self) -> dict[int, str]:
+        return {p.marker: p.candidate.text for p in self.context}
+
+
+async def plan_context(
+    session: AsyncSession,
+    gateway: LLMGateway,
+    reranker: Reranker,
+    question: str,
+    *,
+    settings: Settings,
+    strategy: Strategy = "hybrid",
+    use_rerank: bool = True,
+    rerank_on_refusal: bool = False,
+    retrieve_fn: RetrieveFn = retrieve,
+) -> ContextPlan:
+    """Retrieve, gate, rerank and assemble the context. Shared by chat and the evaluation."""
+    fused = await retrieve_fn(session, gateway, question, settings=settings, strategy=strategy)
+    gate = relevance_gate(fused, min_similarity=settings.rag_min_similarity)
+    reranked = False
+    ordered = fused
+    if use_rerank and (gate.answerable or rerank_on_refusal):
+        ordered, reranked = await rerank_with_fallback(
+            reranker, question, fused, top_n=settings.rag_rerank_top_n, log=logger
+        )
+    context: list[ContextPassage] = []
+    if gate.answerable:
+        context = assemble_context(
+            ordered, max_tokens=settings.rag_context_max_tokens, final_k=settings.rag_context_k
+        )
+    return ContextPlan(fused, ordered, reranked, gate, context)
+
+
 async def answer_question(
     session: AsyncSession,
     gateway: LLMGateway,
@@ -133,6 +193,7 @@ async def answer_question(
     settings: Settings,
     strategy: Strategy = "hybrid",
     use_rerank: bool = True,
+    rerank_on_refusal: bool = False,
     user_id: str | None = None,
     workspace_id: str | None = None,
     registry: PromptRegistry | None = None,
@@ -144,11 +205,27 @@ async def answer_question(
     answer_prompt = prompts.get("answer")
     clean = sanitize_question(question)
 
-    fused = await retrieve_fn(session, gateway, clean, settings=settings, strategy=strategy)
-    gate: GateDecision = relevance_gate(fused, min_similarity=settings.rag_min_similarity)
+    plan = await plan_context(
+        session,
+        gateway,
+        reranker,
+        clean,
+        settings=settings,
+        strategy=strategy,
+        use_rerank=use_rerank,
+        rerank_on_refusal=rerank_on_refusal,
+        retrieve_fn=retrieve_fn,
+    )
+    gate = plan.gate
     if not gate.answerable:
         refuse_prompt = prompts.get("refuse")
-        yield MetaEvent(len(fused), False, gate.best_similarity, gate.reason)
+        yield MetaEvent(
+            len(plan.fused),
+            plan.reranked,
+            gate.best_similarity,
+            gate.reason,
+            ranked=plan.ranked_refs(),
+        )
         yield RefusalEvent(refuse_prompt.render())
         elapsed = _elapsed_ms(start)
         yield DoneEvent(
@@ -156,19 +233,19 @@ async def answer_question(
         )
         return
 
-    reranked = False
-    ordered = fused
-    if use_rerank:
-        ordered, reranked = await rerank_with_fallback(
-            reranker, clean, fused, top_n=settings.rag_rerank_top_n, log=logger
-        )
-    context = assemble_context(
-        ordered, max_tokens=settings.rag_context_max_tokens, final_k=settings.rag_context_k
-    )
+    context = plan.context
     flags = {p.marker: labels for p in context if (labels := detect_injection(p.candidate.text))}
     if flags:
         logger.warning("injection patterns in retrieved passages: markers %s", sorted(flags))
-    yield MetaEvent(len(fused), reranked, gate.best_similarity, gate.reason, flags)
+    yield MetaEvent(
+        len(plan.fused),
+        plan.reranked,
+        gate.best_similarity,
+        gate.reason,
+        flags,
+        plan.ranked_refs(),
+        plan.passages(),
+    )
 
     wrapped = wrap_untrusted(
         [
