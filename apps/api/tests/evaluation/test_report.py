@@ -216,3 +216,19 @@ def test_shipped_experiments_file_defines_the_five_experiments() -> None:
     names = [a.config.name for e in experiments for a in e.arms]
     assert len(names) == len(set(names))
     assert {"retrieval-hybrid", "chunk-heading"} <= set(names)
+
+
+async def test_rerank_arm_that_never_reranked_is_an_error() -> None:
+    import uuid
+
+    async def fake_run(config: RunConfig) -> EvalRunSummary:
+        return EvalRunSummary(uuid.uuid4(), {}, {"mrr": 0.9}, {"items": 5, "reranked": 0})
+
+    exp = Experiment(
+        "r", "R", ("mrr",), (Arm(RunConfig("a")), Arm(RunConfig("b", use_rerank=True)))
+    )
+    result = await run_experiment(exp, fake_run, env={}, default_models={}, commit="c")
+    assert result.arms[0].status == "ok"
+    assert result.arms[1].status == "error"
+    assert "never used" in result.arms[1].reason
+    assert result.arms[1].metrics == {}

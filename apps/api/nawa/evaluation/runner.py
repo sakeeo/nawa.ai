@@ -201,6 +201,7 @@ async def _evaluate_item(
         passages = meta.passages if meta else {}
         gate = meta.gate if meta else "unknown"
         best_similarity = meta.best_similarity if meta else None
+        reranked = bool(meta and meta.reranked)
     else:
         plan_began = time.perf_counter()
         plan = await plan_context(
@@ -218,9 +219,15 @@ async def _evaluate_item(
         passages = plan.passages()
         gate = plan.gate.reason
         best_similarity = plan.gate.best_similarity
+        reranked = plan.reranked
     answer = refusal_text if refused else "".join(tokens)
 
-    metrics: dict[str, Any] = {"gate": gate, "refused": refused, "best_similarity": best_similarity}
+    metrics: dict[str, Any] = {
+        "gate": gate,
+        "refused": refused,
+        "best_similarity": best_similarity,
+        "reranked": reranked,
+    }
     if not config.generate:
         # Retrieval-only runs time embedding + search + (optional) rerank in one go.
         metrics["plan_ms"] = (time.perf_counter() - plan_began) * 1000
@@ -456,6 +463,7 @@ def _summarize(
             "judge_errors": sum(1 for r in results if r.judge_error),
             "faithfulness_scored": len(faith),
             "judged": int(judge_enabled),
+            "reranked": sum(1 for p in per_item if p.get("reranked")),
             **{f"evaluated_{k}": v for k, v in counts.items()},
         },
     )

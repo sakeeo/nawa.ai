@@ -48,7 +48,8 @@ services:
     # Pinned CPU build of Hugging Face text-embeddings-inference. The model (~2.3 GB) is cached in
     # the reranker_data volume, so it runs offline after the first start.
     image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
-    command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--port", "80"]
+    # The default batch (16384 tokens) is run once as warm-up and gets OOM-killed on a 16 GB host.
+    command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--port", "80", "--max-batch-tokens", "2048"]
     ports: ["127.0.0.1:8081:80"]
     volumes: [reranker_data:/data]
     healthcheck:

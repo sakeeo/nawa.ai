@@ -149,6 +149,12 @@ async def run_experiment(
         except Exception as exc:  # noqa: BLE001 - record and continue with the next arm
             base.status, base.reason = "error", f"{type(exc).__name__}: {exc}"
         else:
+            if arm.config.use_rerank and not summary.counts.get("reranked"):
+                # rerank_with_fallback hides an unreachable reranker; never report that as a result.
+                base.status = "error"
+                base.reason = "reranker was never used (every item fell back to the fused order)"
+                results.append(base)
+                continue
             base.metrics = dict(summary.metrics)
             base.counts = dict(summary.counts)
             base.run_id = str(summary.run_id)
