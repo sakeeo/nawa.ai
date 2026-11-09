@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     ollama_api_base: str = "http://ollama:11434"
     embedding_model: str = "ollama/bge-m3"
 
+    upload_dir: str = "/data/uploads"
+    max_upload_bytes: int = 20 * 1024 * 1024
+    max_pdf_pages: int = 200
+
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: SecretStr | None = None

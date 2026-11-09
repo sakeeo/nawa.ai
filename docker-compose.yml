@@ -65,6 +65,7 @@ services:
     environment:
       OFFLINE_MODE: ${OFFLINE_MODE:-false}
     ports: ["127.0.0.1:8000:8000"]
+    volumes: [uploads:/data/uploads]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -74,6 +75,20 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
+
+  worker:
+    <<: *restart
+    image: nawa-api:dev
+    env_file: .env
+    environment:
+      OFFLINE_MODE: ${OFFLINE_MODE:-false}
+    command: ["arq", "nawa.knowledge.worker.WorkerSettings"]
+    volumes: [uploads:/data/uploads]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      ollama: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
 
   web:
     <<: *restart
@@ -209,6 +224,7 @@ volumes:
   postgres_data:
   redis_data:
   ollama_data:
+  uploads:
   langfuse_db_data:
   clickhouse_data:
   minio_data:

@@ -88,6 +88,8 @@ model weights.
 | `make lint` | ruff, mypy, import-linter, eslint, tsc |
 | `make offline-smoke` | Offline acceptance check |
 
+The `worker` service (ARQ on Redis) runs background ingestion and shares the `uploads` volume with the API.
+
 Python uses `uv`; the frontend uses `pnpm`. Tests never call a real LLM; they use a fake client.
 
 API integration tests need a PostgreSQL superuser URL in `TEST_DATABASE_OWNER_URL`; without it
