@@ -119,3 +119,38 @@ class ConceptEmbedder(FakeLLMClient):
                 vector[i] += len(words & group)
             out.append(vector)
         return out
+
+
+class ScriptedLLMClient(FakeLLMClient):
+    """Returns the given replies one per `complete` call, in order. Records every call."""
+
+    def __init__(self, replies: list[str], **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.replies = list(replies)
+
+    @property
+    def completions(self) -> list[dict[str, Any]]:
+        return [c for c in self.calls if c["kind"] == "complete"]
+
+    async def complete(  # type: ignore[no-untyped-def]
+        self, *, model, messages, response_format, metadata, api_base
+    ) -> ChatResult:
+        self.calls.append(
+            {
+                "kind": "complete",
+                "model": model,
+                "messages": messages,
+                "response_format": response_format,
+                "metadata": metadata,
+                "api_base": api_base,
+            }
+        )
+        if not self.replies:
+            raise AssertionError("unexpected LLM call: the script has no reply left")
+        return ChatResult(
+            content=self.replies.pop(0),
+            model=model,
+            prompt_tokens=3,
+            completion_tokens=1,
+            cost_usd=0.0,
+        )

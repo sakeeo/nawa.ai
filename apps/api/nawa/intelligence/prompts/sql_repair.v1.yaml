@@ -1,0 +1,13 @@
+name: sql_repair
+version: 1
+description: Ask the model to fix a rejected or failing SQL query, keeping the same JSON reply format.
+template: |
+  The query you wrote did not work.
+
+  PREVIOUS SQL:
+  {previous_sql}
+
+  PROBLEM:
+  {error}
+
+  Fix the query. Keep every rule and use only the tables and columns already listed. Reply with JSON only, in the same shape: {{"sql": "<one SELECT query, or null>", "assumptions": [], "clarification": null}}. If the question cannot be answered, return "sql": null with a clarification.

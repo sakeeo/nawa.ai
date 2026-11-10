@@ -41,3 +41,20 @@ def test_bundled_rag_prompts_load(name: str) -> None:
     prompt = PromptRegistry().get(name, version=1)
     assert prompt.version == 1 and prompt.template.strip()
     prompt.render()  # no unescaped placeholders
+
+
+def test_sql_prompts_load_and_render_with_their_placeholders() -> None:
+    registry = PromptRegistry()
+    generate = registry.get("text_to_sql", version=1)
+    rendered = generate.render(
+        dialect="PostgreSQL",
+        today="2025-12-31",
+        schema_block="S",
+        metrics_block="M",
+        dimensions_block="D",
+        fewshot_block="",
+    )
+    assert "2025-12-31" in rendered and '"sql"' in rendered
+    repair = registry.get("sql_repair", version=1)
+    text = repair.render(previous_sql="SELECT 1", error="boom")
+    assert "SELECT 1" in text and "boom" in text
