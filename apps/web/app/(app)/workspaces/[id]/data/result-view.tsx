@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { describeAnomaly } from "@/lib/anomaly";
 import { kpiValue } from "@/lib/chart";
 import { formatCell, truncatedNotice } from "@/lib/result-table";
 import type { AskResponse } from "@/lib/types";
@@ -104,6 +105,19 @@ export function ResultView({ workspaceId, result }: { workspaceId: string; resul
         <div className="rounded border bg-white p-3">
           <p className="text-sm font-medium">{chart.title}</p>
           <ResultChart spec={chart} columns={result.columns} rows={result.rows} />
+        </div>
+      )}
+      {result.anomalies.length > 0 && (
+        <div role="note" className="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+          <p className="font-medium">Perlu diperhatikan</p>
+          <ul className="mt-1 list-disc pl-5">
+            {result.anomalies.map((anomaly) => (
+              <li key={anomaly.label}>{describeAnomaly(anomaly)}</li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-gray-600">
+            Dihitung otomatis dari hasil query (z-score), bukan oleh model.
+          </p>
         </div>
       )}
       <DataTable columns={result.columns} rows={result.rows} />

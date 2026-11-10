@@ -2,6 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -123,4 +124,26 @@ class QueryLog(Base):
     insight: Mapped[str | None] = mapped_column(Text, default=None)
     insight_grounded: Mapped[bool | None] = mapped_column(Boolean, default=None)
     feedback: Mapped[int | None] = mapped_column(SmallInteger, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
+class ApprovedQuery(Base):
+    """A question and the SQL a user approved for it; the nearest ones become few-shot examples."""
+
+    __tablename__ = "approved_queries"
+    __table_args__ = (
+        UniqueConstraint("data_source_id", "question", name="uq_approved_queries_source_question"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = _workspace_fk()
+    data_source_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("data_sources.id", ondelete="CASCADE")
+    )
+    question: Mapped[str] = mapped_column(Text)
+    sql: Mapped[str] = mapped_column(Text)
+    embedding: Mapped[list[float]] = mapped_column(Vector(1024))
+    approved_by: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)

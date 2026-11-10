@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 from nawa.core.db import apply_rls
 from tests.integration.helpers import insert_membership, insert_user, insert_workspace
 
-TABLES = ["data_sources", "schema_snapshots", "semantic_models", "query_logs"]
+TABLES = ["data_sources", "schema_snapshots", "semantic_models", "query_logs", "approved_queries"]
 
 
 @dataclass
@@ -54,6 +54,19 @@ async def _populate(conn: AsyncConnection, ws: uuid.UUID, user: uuid.UUID) -> uu
             " VALUES (:id, :ws, :s, :u, 'q', 'SELECT 1', 'ok', 1, 5)"
         ),
         {"id": uuid.uuid4(), "ws": ws, "s": source, "u": user},
+    )
+    await conn.execute(
+        text(
+            "INSERT INTO approved_queries (id, workspace_id, data_source_id, question, sql,"
+            " embedding, approved_by) VALUES (:id, :ws, :s, 'q', 'SELECT 1', :emb, :u)"
+        ),
+        {
+            "id": uuid.uuid4(),
+            "ws": ws,
+            "s": source,
+            "u": user,
+            "emb": "[" + ",".join(["0.1"] * 1024) + "]",
+        },
     )
     return source
 
@@ -234,6 +247,36 @@ async def test_data_source_defaults(owner_engine: AsyncEngine, seed: Seed) -> No
             )
         ).one()
     assert tuple(row) == ("untested", "prefer")
+
+
+async def test_one_approved_query_per_question_and_source(
+    owner_engine: AsyncEngine, seed: Seed
+) -> None:
+    with pytest.raises(IntegrityError):
+        async with owner_engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "INSERT INTO approved_queries (id, workspace_id, data_source_id, question, sql,"
+                    " embedding) VALUES (:id, :ws, :s, 'q', 'SELECT 2', :emb)"
+                ),
+                {
+                    "id": uuid.uuid4(),
+                    "ws": seed.ws_a,
+                    "s": seed.source_a,
+                    "emb": "[" + ",".join(["0.2"] * 1024) + "]",
+                },
+            )
+
+
+async def test_approved_queries_have_a_vector_index(owner_engine: AsyncEngine) -> None:
+    async with owner_engine.connect() as conn:
+        names = {
+            r[0]
+            for r in await conn.execute(
+                text("SELECT indexname FROM pg_indexes WHERE tablename = 'approved_queries'")
+            )
+        }
+    assert "approved_queries_embedding_hnsw" in names
 
 
 async def test_deleting_a_source_keeps_logs_but_drops_snapshots_and_models(

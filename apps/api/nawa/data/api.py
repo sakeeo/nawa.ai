@@ -16,15 +16,17 @@ from nawa.core.errors import (
     ValidationFailedError,
 )
 from nawa.core.ratelimit import RateLimiter, get_redis
-from nawa.data import repository
+from nawa.data import fewshot, repository
+from nawa.data.anomaly import detect_anomalies
 from nawa.data.charts import choose_chart
 from nawa.data.connector import ConnectionParams, open_engine, scrub, test_connection
 from nawa.data.discovery import discover_schema
 from nawa.data.executor import QueryExecutionError, execute_readonly
 from nawa.data.guard import check_sql, mark_checked
 from nawa.data.insight import generate_insight
-from nawa.data.models import DataSource
+from nawa.data.models import DataSource, QueryLog
 from nawa.data.schemas import (
+    AnomalyRead,
     AskRequest,
     AskResponse,
     ChartRead,
@@ -303,6 +305,17 @@ async def ask(
     if schema is None:
         raise ConflictError("Run schema discovery first")
     model, model_id, version = active
+    examples: list[tuple[str, str]] = []
+    try:  # best effort: no example is better than a failed question
+        examples = await fewshot.similar_examples(
+            ctx.session,
+            gateway,
+            workspace_id=ctx.workspace_id,
+            source_id=source.id,
+            question=body.question,
+        )
+    except Exception:
+        logger.warning("Looking up few-shot examples failed", exc_info=True)
     outcome = await ask_question(
         AskContext(
             session=ctx.session,
@@ -316,6 +329,7 @@ async def ask(
             gateway=gateway,
             registry=PromptRegistry(),
             settings=settings,
+            fewshot=examples,
         ),
         body.question,
     )
@@ -324,6 +338,7 @@ async def ask(
     columns = result.columns if result else []
     rows = result.rows if result else []
     chart = choose_chart(columns, rows) if result else None
+    anomalies = detect_anomalies(columns, rows) if result else []
     return AskResponse(
         query_id=outcome.query_id,
         status=outcome.status,
@@ -342,6 +357,10 @@ async def ask(
         else None,
         attempts=outcome.attempts,
         linked_tables=outcome.linked_tables,
+        anomalies=[
+            AnomalyRead(label=a.label, value=a.value, z=a.z, direction=a.direction)
+            for a in anomalies
+        ],
     )
 
 
@@ -417,8 +436,33 @@ async def list_queries(
 
 
 @router.post("/data/queries/{query_id}/feedback", status_code=204)
-async def query_feedback(query_id: uuid.UUID, body: QueryFeedbackWrite, ctx: MemberCtx) -> Response:
-    await _own_or_managed_query(ctx, query_id, owner_only=True)
+async def query_feedback(
+    query_id: uuid.UUID,
+    body: QueryFeedbackWrite,
+    ctx: MemberCtx,
+    settings: SettingsDep,
+    client: Annotated[LLMClient, Depends(get_llm_client)],
+) -> Response:
+    entry = await _own_or_managed_query(ctx, query_id, owner_only=True)
     await repository.set_query_feedback(ctx.session, ctx.workspace_id, query_id, body.value)
+    await _sync_approval(ctx, settings, client, entry, body.value)
     await ctx.session.commit()
     return Response(status_code=204)
+
+
+async def _sync_approval(
+    ctx: WorkspaceContext, settings: Settings, client: LLMClient, entry: QueryLog, value: int
+) -> None:
+    """A thumbs-up makes the query a few-shot example, a thumbs-down withdraws it. Best effort."""
+    if entry.data_source_id is None:
+        return
+    try:
+        if value == 1:
+            gateway = await _gateway(ctx, settings, client)
+            await fewshot.approve_query(ctx.session, gateway, entry=entry, approved_by=ctx.user.id)
+        else:
+            await fewshot.unapprove_query(
+                ctx.session, ctx.workspace_id, entry.data_source_id, entry.question
+            )
+    except Exception:
+        logger.warning("Updating the approved query failed", exc_info=True)

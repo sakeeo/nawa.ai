@@ -622,3 +622,84 @@ async def test_feedback_is_stored_for_the_owner_only(world: World) -> None:
     for bad in ({"value": 0}, {"value": 5}, {}, {"value": 1, "x": 1}):
         response = await world.member.client.post(url, json=bad, headers=world.member.headers)
         assert response.status_code == 422, bad
+
+
+# ---------------------------------------------------------------- few-shot and anomalies
+
+
+async def test_a_thumbs_up_approves_the_query_and_a_thumbs_down_withdraws_it(world: World) -> None:
+    source_id = await world.prepare()
+    query_id = await _ask_ok(world, source_id, world.member)
+    url = world.url(f"/data/queries/{query_id}/feedback")
+    assert (
+        await world.member.client.post(url, json={"value": 1}, headers=world.member.headers)
+    ).status_code == 204
+    assert await world.scalar("SELECT count(*) FROM approved_queries") == 1
+    stored = await world.scalar("SELECT sql FROM approved_queries")
+    assert stored == await world.scalar("SELECT sql FROM query_logs WHERE id = :i", i=query_id)
+    assert (
+        await world.member.client.post(url, json={"value": -1}, headers=world.member.headers)
+    ).status_code == 204
+    assert await world.scalar("SELECT count(*) FROM approved_queries") == 0
+
+
+async def test_an_approved_question_comes_back_as_an_example_for_the_same_question_only(
+    world: World,
+) -> None:
+    source_id = await world.prepare()
+    query_id = await _ask_ok(world, source_id, world.member)
+    await world.member.client.post(
+        world.url(f"/data/queries/{query_id}/feedback"),
+        json={"value": 1},
+        headers=world.member.headers,
+    )
+    approved_sql = await world.scalar("SELECT sql FROM approved_queries")
+
+    world.fake.replies.append(reply(GOOD_SQL))
+    await world.ask(world.other_member, source_id)  # the same question, asked by someone else
+    with_example = str(world.fake.completions[-1]["messages"][0]["content"])
+    assert "<examples>" in with_example and approved_sql in with_example
+
+    world.fake.replies.append(reply(GOOD_SQL))
+    await world.ask(world.other_member, source_id, "berapa jumlah pesanan seluruhnya")
+    without = str(world.fake.completions[-1]["messages"][0]["content"])
+    assert "<examples>" not in without
+
+
+async def test_an_embedding_outage_never_breaks_feedback_or_asking(world: World) -> None:
+    source_id = await world.prepare()
+    query_id = await _ask_ok(world, source_id, world.member)
+
+    async def broken(**_: Any) -> Any:
+        raise RuntimeError("embedding service is down")
+
+    world.fake.embed = broken  # type: ignore[method-assign]
+    feedback = await world.member.client.post(
+        world.url(f"/data/queries/{query_id}/feedback"),
+        json={"value": 1},
+        headers=world.member.headers,
+    )
+    assert feedback.status_code == 204
+    assert await world.scalar("SELECT feedback FROM query_logs WHERE id = :i", i=query_id) == 1
+    assert await world.scalar("SELECT count(*) FROM approved_queries") == 0
+    world.fake.replies.append(reply(GOOD_SQL))
+    assert (await world.ask(world.member, source_id)).json()["status"] == "ok"
+
+
+async def test_a_time_series_result_carries_computed_anomaly_notes(world: World) -> None:
+    source_id = await world.prepare()
+    values = [100, 102, 98, 101, 99, 100, 40, 101]
+    union = " UNION ALL ".join(
+        f"SELECT DATE '2025-{i:02d}-01' AS day, {v} AS total" for i, v in enumerate(values, 1)
+    )
+    world.fake.replies = [reply(union + " ORDER BY day")]
+    body = (await world.ask(world.member, source_id, "tren bulanan")).json()
+    assert body["status"] == "ok" and body["chart"]["kind"] == "line"
+    assert [(a["label"], a["direction"]) for a in body["anomalies"]] == [("2025-07-01", "low")]
+    assert body["anomalies"][0]["value"] == 40 and body["anomalies"][0]["z"] < -2
+
+
+async def test_results_without_a_time_axis_have_no_anomalies(world: World) -> None:
+    source_id = await world.prepare()
+    world.fake.replies = [reply(GOOD_SQL)]
+    assert (await world.ask(world.member, source_id)).json()["anomalies"] == []

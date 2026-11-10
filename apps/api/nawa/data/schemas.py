@@ -87,6 +87,13 @@ class ChartRead(BaseModel):
     title: str
 
 
+class AnomalyRead(BaseModel):
+    label: str
+    value: float
+    z: float
+    direction: Literal["high", "low"]
+
+
 class AskResponse(BaseModel):
     query_id: uuid.UUID
     status: Literal["ok", "blocked", "error", "clarification"]
@@ -103,6 +110,7 @@ class AskResponse(BaseModel):
     chart: ChartRead | None
     attempts: int
     linked_tables: list[str]
+    anomalies: list[AnomalyRead] = []
 
 
 class InsightRead(BaseModel):

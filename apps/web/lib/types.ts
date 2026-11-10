@@ -142,6 +142,7 @@ export type SemanticDraft = { yaml: string };
 export type ChartKind = "kpi" | "bar" | "line" | "table";
 export type ChartSpec = { kind: ChartKind; x: string | null; y: string[]; title: string };
 export type AskStatus = "ok" | "blocked" | "error" | "clarification";
+export type Anomaly = { label: string; value: number; z: number; direction: "high" | "low" };
 export type AskResponse = {
   query_id: string;
   status: AskStatus;
@@ -158,6 +159,7 @@ export type AskResponse = {
   chart: ChartSpec | null;
   attempts: number;
   linked_tables: string[];
+  anomalies: Anomaly[];
 };
 export type InsightRead = { text: string; grounded: boolean; cached: boolean };
 export type QueryLogEntry = {
