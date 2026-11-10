@@ -7,10 +7,13 @@ NAWA.AI answers questions from company documents, analyses business data in natu
 and runs AI agents with human approval, all on the company's own infrastructure. Data never
 leaves the host, and the platform can run fully offline with local models.
 
-> Status: **Phase 1, Knowledge Intelligence.** Document upload and background ingestion, hybrid
-> retrieval with citations, an AI Assistant that refuses when the documents do not answer, and an
-> evaluation engine with a published [report](docs/evaluation-report.md). Phase 0 (setup wizard,
-> authentication, workspaces with row-level security, offline-aware LLM gateway, demo data) is included.
+> Status: **Phase 2, Business Intelligence.** A data analyst that turns a business question into
+> safe, read-only SQL over a connected PostgreSQL database and shows the SQL, a table, a chart and a
+> short explanation whose numbers come from the result, with a YAML semantic layer, a seven-layer
+> SQL Guard and a Text-to-SQL evaluation. Phase 1 (document upload and ingestion, hybrid retrieval
+> with citations, an AI Assistant that refuses when the documents do not answer, a published
+> [report](docs/evaluation-report.md)) and Phase 0 (setup wizard, authentication, workspaces with
+> row-level security, offline-aware LLM gateway, demo data) are included.
 
 ## Why self-hosted
 
@@ -26,7 +29,8 @@ Web (Next.js) --/api/v1--> API (FastAPI, modular monolith)
                              |- workspace     users, workspaces, members, invites, setup
                              |- intelligence  LLM gateway (LiteLLM), offline policy, prompts, tracing
                              |- knowledge     documents, ingestion, hybrid retrieval, chat, citations
-                             '- evaluation    golden dataset, metrics, experiments, report
+                             |- data          data sources, semantic layer, SQL Guard, text-to-SQL, charts
+                             '- evaluation    golden datasets, metrics, experiments, reports
                                     |
               PostgreSQL 16 + pgvector, Redis (+ ARQ worker), Ollama (local LLM + BGE-M3),
               optional reranker, Langfuse
@@ -102,6 +106,27 @@ experiment arms use an external provider.
 
 Measured quality, targets and limitations: [docs/evaluation-report.md](docs/evaluation-report.md).
 
+## How the data analyst answers
+
+Managers connect a PostgreSQL database on the Data sources page with a read-only user (the connection
+test refuses a user that can write), run Discover, and save a YAML semantic layer: which tables and
+columns the AI may use, what "revenue" means, synonyms, joins. Members then ask on the Tanya data page,
+for example "Outlet mana dengan penjualan terendah bulan Agustus?" or "Menu apa yang paling menguntungkan?".
+The system picks the relevant tables, asks the model for one `SELECT`, and checks it before anything runs:
+a single read-only statement, only allowlisted tables, columns and functions, a row limit, a read-only
+transaction and a 10 second timeout. A forbidden statement is blocked and logged; a fixable mistake goes back
+to the model at most twice. The answer shows the SQL, the result table, an automatic chart (KPI, bar or line),
+notes on unusual points of a time series, and an explanation in which every number must appear in the result.
+A thumbs-up teaches the system: the question and SQL become an example for similar questions later.
+Every question, blocked ones included, is written to a query log.
+
+Demo walk-through (`make seed` with `DEMO_DB_READONLY_PASSWORD` set, then connect the `noesantara` database
+as that user and save `seed/noesantara_semantic.yaml`): ask the August question and Bandung comes out
+lowest; ask "Hapus tabel orders" and see it blocked. The design is in
+[ADR 0011](docs/adr/0011-semantic-layer.md), [ADR 0012](docs/adr/0012-sql-guard.md) and
+[ADR 0013](docs/adr/0013-schema-linking.md); measured quality will be in
+`docs/evaluation-report-sql.md` after `make eval-sql-report`.
+
 ## Development
 
 | Command | Purpose |
@@ -113,6 +138,7 @@ Measured quality, targets and limitations: [docs/evaluation-report.md](docs/eval
 | `make eval` | Run the golden dataset (`evals/golden.yaml`) and print the quality metrics |
 | `make eval-experiments NAME=<x>` | Run one experiment (`chunking`, `retrieval`, `reranking`, `embedding`, `generator`, or `all`) and save JSON to `evals/results/` |
 | `make eval-report` | Render `docs/evaluation-report.md` and `docs/images/eval-*.svg` from the saved results |
+| `make eval-sql` | Run the Text-to-SQL golden dataset (baseline arm); `make eval-sql-experiments` runs every arm, `make eval-sql-report` writes `docs/evaluation-report-sql.md` |
 | `make offline-smoke` | Offline acceptance check |
 
 `make eval` ingests the demo documents into a persistent `nawa-eval` workspace and scores 75
@@ -158,14 +184,17 @@ they are skipped. The demo data loader lives in [seed/](seed/README.md).
 - [ADR 0008: Heading-aware chunking](docs/adr/0008-chunking-strategy.md)
 - [ADR 0009: Hybrid search with rank fusion, optional reranker](docs/adr/0009-hybrid-search-and-fusion.md)
 - [ADR 0010: Vectors in PostgreSQL, narrow module-boundary exceptions](docs/adr/0010-vector-store-and-retrieval-boundaries.md)
+- [ADR 0011: A YAML semantic layer is the allowlist for Text-to-SQL](docs/adr/0011-semantic-layer.md)
+- [ADR 0012: A layered SQL Guard in front of a read-only executor](docs/adr/0012-sql-guard.md)
+- [ADR 0013: Schema linking with lexical and embedding scores](docs/adr/0013-schema-linking.md)
 
 ## Roadmap
 
 | Phase | Scope |
 |---|---|
 | 0 | Foundation |
-| 1 | Knowledge intelligence: RAG with citations and evaluation (current) |
-| 2 | Business intelligence: safe text-to-SQL with charts |
+| 1 | Knowledge intelligence: RAG with citations and evaluation |
+| 2 | Business intelligence: safe text-to-SQL with charts (current) |
 | 3 | Multi-agent analysis with human-in-the-loop |
 | 4 | Scheduled workflows with approvals and audit |
 | 5 | Polish and launch |
