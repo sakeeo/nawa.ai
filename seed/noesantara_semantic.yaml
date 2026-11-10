@@ -79,11 +79,11 @@ metrics:
   revenue:
     description: Total sales value before discounts.
     sql: SUM(order_items.quantity * order_items.unit_price)
-    synonyms: [omzet, penjualan, pendapatan kotor, total penjualan]
+    synonyms: [omzet, penjualan, pendapatan kotor, total penjualan, performa, kinerja]
   gross_profit:
     description: Revenue minus ingredient cost (HPP).
     sql: SUM(order_items.quantity * (order_items.unit_price - menu_items.food_cost))
-    synonyms: [laba kotor, keuntungan, profit, untung]
+    synonyms: [laba kotor, keuntungan, profit, untung, menguntungkan]
   order_count:
     description: Number of distinct orders.
     sql: COUNT(DISTINCT orders.id)
