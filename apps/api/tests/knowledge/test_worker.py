@@ -1,4 +1,6 @@
 import importlib
+import os
+import subprocess
 import sys
 
 import pytest
@@ -20,3 +22,19 @@ def test_worker_settings_follow_environment(monkeypatch: pytest.MonkeyPatch) -> 
     finally:
         get_settings.cache_clear()
         sys.modules.pop("nawa.knowledge.worker", None)
+
+
+def test_worker_entrypoint_resolves_foreign_keys_in_a_fresh_process() -> None:
+    # In the worker process nothing imports the API, so nawa.worker must register every table
+    # that knowledge tables point at. Regression: NoReferencedTableError on 'workspaces'.
+    code = (
+        "import nawa.worker; "
+        ""
+        "from nawa.knowledge.models import Document; "
+        "Document.__table__.foreign_keys and [fk.column for fk in Document.__table__.foreign_keys]"
+    )
+    env = {**os.environ, "DATABASE_URL": "postgresql+asyncpg://u:p@h/db"}
+    result = subprocess.run(  # noqa: S603  (fixed argv, no untrusted input)
+        [sys.executable, "-I", "-c", code], env=env, capture_output=True, text=True
+    )
+    assert result.returncode == 0, result.stderr

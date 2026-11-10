@@ -99,7 +99,7 @@ services:
     env_file: .env
     environment:
       OFFLINE_MODE: ${OFFLINE_MODE:-false}
-    command: ["arq", "nawa.knowledge.worker.WorkerSettings"]
+    command: ["arq", "nawa.worker.WorkerSettings"]
     volumes: [uploads:/data/uploads]
     depends_on:
       postgres: {condition: service_healthy}
