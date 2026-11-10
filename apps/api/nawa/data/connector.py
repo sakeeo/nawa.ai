@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 
+import asyncpg
 from sqlalchemy import URL, text
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import NullPool
@@ -50,6 +51,20 @@ async def open_engine(params: ConnectionParams) -> AsyncIterator[AsyncEngine]:
         yield engine
     finally:
         await engine.dispose()
+
+
+async def connect_raw(params: ConnectionParams) -> asyncpg.Connection:
+    """A single asyncpg connection for the executor. The caller must close it."""
+    return await asyncpg.connect(
+        host=params.host,
+        port=params.port,
+        user=params.username,
+        password=params.password,
+        database=params.database,
+        ssl=params.ssl_mode,
+        timeout=CONNECT_TIMEOUT_S,
+        server_settings={"application_name": "nawa-data"},
+    )
 
 
 @dataclass(frozen=True)

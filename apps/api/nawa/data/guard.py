@@ -13,7 +13,7 @@ Failure kinds drive the self-correction policy (decision P6):
 
 import re
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, NewType
 
 import sqlglot
 from sqlglot import exp
@@ -101,6 +101,11 @@ _CALL = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 _QUALIFIED_CALL = re.compile(r"[A-Za-z0-9_\"]\s*\.\s*\"?[A-Za-z_][A-Za-z0-9_]*\"?\s*\(")
 _FIRST_TOKEN = re.compile(r"\s*([A-Za-z_][A-Za-z0-9_]*)")
 _AUTO_ALIAS = re.compile(r"_col_\d+")
+
+
+# SQL that passed `check_sql`. The executor accepts only this type, so unchecked text cannot
+# reach a database by accident (mypy enforces it; `mark_checked` is the one way to make it).
+GuardedSql = NewType("GuardedSql", str)
 
 
 @dataclass(frozen=True)
@@ -276,3 +281,10 @@ def check_sql(sql: str, allow: dict[str, set[str]], *, max_rows: int = 1000) -> 
     if failure := _scan_rendered(rendered):
         return failure
     return GuardResult(ok=True, sql=rendered, kind="ok", reason=None, tables=tables)
+
+
+def mark_checked(result: GuardResult) -> GuardedSql:
+    """Turn a successful guard result into executable SQL. Refuses anything else."""
+    if not result.ok or result.sql is None:
+        raise ValueError("Only SQL that passed the guard can be executed")
+    return GuardedSql(result.sql)
