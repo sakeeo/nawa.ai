@@ -45,14 +45,14 @@ Automated gate (local, 2026-11-09, 100602b plus the Makefile fix of the same day
 
 Manual, from a fresh clone (new directory, new Compose project name, new volumes, `.env` from `.env.example`, `make dev`):
 
-- [ ] Upload PDF, DOCX, TXT and MD in the web UI; each reaches `ready`; a corrupt file reaches `failed` with a readable error.
+- [x] Upload PDF, DOCX, TXT and MD in the web UI; each reaches `ready`; a corrupt file reaches `failed` with a readable error. (2026-11-10, local stack with a fake embedder; the error text names the exception class and is in English, see PROGRESS)
 - [ ] Demo documents load through the wizard option and the Knowledge page shows them `ready`.
-- [ ] "Apa prosedur jika pelanggan komplain makanannya tidak layak?" answers with a clickable citation to the complaint policy.
-- [ ] An unanswerable question is refused ("tidak ditemukan"); no citation chips.
+- [x] "Apa prosedur jika pelanggan komplain makanannya tidak layak?" answers with a clickable citation to the complaint policy. (2026-11-10, UI and retrieval wiring only: the answer text came from a fake model)
+- [x] An unanswerable question is refused ("tidak ditemukan"); no citation chips. (2026-11-10, fake embedder, threshold 0.3)
 - [ ] An injection document does not change the assistant's behaviour (ask the five trap questions).
-- [ ] A viewer cannot upload or delete; a member cannot upload; a member of another workspace cannot read the chunk or the conversation.
+- [x] A viewer cannot upload or delete; a member cannot upload; a member of another workspace cannot read the chunk or the conversation. (2026-11-10: automated tests in the full suite; in the browser a member sees no upload control or delete button)
 - [ ] Feedback thumbs up/down is stored (check the `feedback` table) and survives a reload.
-- [ ] Streaming survives the Next.js rewrite proxy (tokens arrive progressively, Stop works).
+- [x] Streaming survives the Next.js rewrite proxy (tokens arrive progressively, Stop works). (2026-11-10, 270 characters in eight steps over about 4 s; no text after Stop)
 - [ ] The answer call appears in Langfuse with prompt name and version, tokens and latency.
 - [ ] Chat works with the internet blocked (local model); `make offline-smoke` only covers the gateway and embeddings.
 - [ ] `docs/evaluation-report.md` matches the latest run and states which targets were met or missed (see the report: all seven met with DeepSeek as generator; the local 7B model misses latency, citation accuracy and injection resistance).
