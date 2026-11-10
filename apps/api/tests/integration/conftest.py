@@ -228,3 +228,38 @@ async def target_database() -> AsyncIterator[TargetDb]:
         await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
         await admin.execute(f"DROP ROLE IF EXISTS {role}")
         await admin.close()
+
+
+@pytest_asyncio.fixture
+async def demo_database() -> AsyncIterator[object]:
+    """The real Resto Noesantara seed in a scratch database, with a SELECT-only role.
+
+    Yields the `ConnectionParams` of that role. Loading takes a few seconds, so tests that need
+    the full dataset share one test where they can.
+    """
+    from noesantara_seed import load as seed_load
+
+    from nawa.data.connector import ConnectionParams
+
+    owner_url = os.environ.get("TEST_DATABASE_OWNER_URL")
+    if not owner_url:
+        if os.environ.get("CI"):
+            pytest.fail("TEST_DATABASE_OWNER_URL must be set in CI")
+        pytest.skip("TEST_DATABASE_OWNER_URL not set")
+    base = make_url(owner_url)
+    name = f"nawa_demo_{secrets.token_hex(4)}"
+    role = f"nawa_demo_ro_{secrets.token_hex(3)}"
+    password = "demo-ro-password"
+    admin = await asyncpg.connect(seed_load.to_asyncpg_dsn(base.render_as_string(False)))
+    await admin.execute(f'CREATE DATABASE "{name}"')
+    target_url = base.set(database=name).render_as_string(hide_password=False)
+    try:
+        await seed_load.load_async(target_url)
+        await seed_load.ensure_readonly_role(target_url, role, password)
+        yield ConnectionParams(
+            base.host or "127.0.0.1", base.port or 5432, name, role, password, "prefer"
+        )
+    finally:
+        await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        await admin.execute(f"DROP ROLE IF EXISTS {role}")
+        await admin.close()

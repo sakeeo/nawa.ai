@@ -95,6 +95,8 @@ ignore_imports = [
   # The data API checks roles and reads the instance AI provider, as the knowledge API does.
   "nawa.data.api -> nawa.workspace.deps",
   "nawa.data.api -> nawa.workspace.repository",
+  # The Text-to-SQL golden dataset checks its references with the same guard as model SQL.
+  "nawa.evaluation.sql_dataset -> nawa.data.guard",
   # The evaluation drives the real pipeline through public entry points only (ADR in T1-15).
   "nawa.evaluation.runner -> nawa.knowledge.answer",
   "nawa.evaluation.runner -> nawa.knowledge.corpus",
