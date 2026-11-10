@@ -1,5 +1,6 @@
 import { parseSse } from "@/lib/sse";
 import type {
+  AskResponse,
   ChatEvent,
   ChunkOut,
   ConnectionReport,
@@ -10,6 +11,8 @@ import type {
   DataSourceCreated,
   DiscoverySummary,
   DocumentOut,
+  InsightRead,
+  QueryLogEntry,
   SemanticDraft,
   SemanticModelRead,
 } from "@/lib/types";
@@ -141,6 +144,24 @@ export const api = {
       apiFetch<DiscoverySummary>(dataPath(workspaceId, sourceId, "/discover"), { method: "POST" }),
     remove: (workspaceId: string, sourceId: string) =>
       apiFetch<void>(dataPath(workspaceId, sourceId), { method: "DELETE" }),
+  },
+  data: {
+    ask: (workspaceId: string, dataSourceId: string, question: string) =>
+      apiFetch<AskResponse>(
+        `/workspaces/${workspaceId}/data/ask`,
+        withBody("POST", { data_source_id: dataSourceId, question }),
+      ),
+    insight: (workspaceId: string, queryId: string) =>
+      apiFetch<InsightRead>(`/workspaces/${workspaceId}/data/queries/${queryId}/insight`, {
+        method: "POST",
+      }),
+    history: (workspaceId: string, limit = 20) =>
+      apiFetch<QueryLogEntry[]>(`/workspaces/${workspaceId}/data/queries?limit=${limit}`),
+    feedback: (workspaceId: string, queryId: string, value: 1 | -1) =>
+      apiFetch<void>(
+        `/workspaces/${workspaceId}/data/queries/${queryId}/feedback`,
+        withBody("POST", { value }),
+      ),
   },
   semantic: {
     get: (workspaceId: string, sourceId: string) =>

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/lib/api";
 import {
   canManageData,
+  describeAskError,
   describeDiscovery,
   emptyConnectionForm,
   parseProblems,
@@ -203,5 +204,54 @@ describe("api.semantic", () => {
     mockFetch(422, { title: "Unprocessable", detail: "bad", problems: ["Column 'x' is missing"] });
     const error = await api.semantic.save("w1", "s1", "x").catch((e: unknown) => e);
     expect(parseProblems(error)).toEqual(["Column 'x' is missing"]);
+  });
+});
+
+describe("api.data", () => {
+  it("asks a question with the source id and the CSRF header", async () => {
+    vi.stubGlobal("document", { cookie: "csrf_token=t9" });
+    const fetchMock = mockFetch(200, { status: "ok" });
+    await api.data.ask("w1", "s1", "omzet per outlet");
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("/api/v1/workspaces/w1/data/ask");
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>)["X-CSRF-Token"]).toBe("t9");
+    expect(JSON.parse(init.body as string)).toEqual({
+      data_source_id: "s1",
+      question: "omzet per outlet",
+    });
+  });
+
+  it("requests the insight, the history and sends feedback", async () => {
+    vi.stubGlobal("document", { cookie: "csrf_token=t9" });
+    const fetchMock = mockFetch(200, {});
+    await api.data.insight("w1", "q1");
+    await api.data.history("w1", 10);
+    await api.data.feedback("w1", "q1", -1);
+    const calls = fetchMock.mock.calls.map(([url, init]) => [
+      url,
+      (init as RequestInit).method ?? "GET",
+    ]);
+    expect(calls).toEqual([
+      ["/api/v1/workspaces/w1/data/queries/q1/insight", "POST"],
+      ["/api/v1/workspaces/w1/data/queries?limit=10", "GET"],
+      ["/api/v1/workspaces/w1/data/queries/q1/feedback", "POST"],
+    ]);
+    expect(JSON.parse((fetchMock.mock.calls[2][1] as RequestInit).body as string)).toEqual({
+      value: -1,
+    });
+  });
+});
+
+
+describe("describeAskError", () => {
+  it("explains rate limits, an unavailable model and a source that is not ready", () => {
+    expect(describeAskError(new ApiError(429, "Too Many", "x"))).toMatch(/terlalu banyak/i);
+    expect(describeAskError(new ApiError(503, "Unavailable", "x"))).toMatch(/model/i);
+    expect(describeAskError(new ApiError(403, "Forbidden", "x"))).toMatch(/izin/i);
+    expect(
+      describeAskError(new ApiError(409, "Conflict", "Run schema discovery first")),
+    ).toContain("Run schema discovery first");
+    expect(describeAskError(new Error("net"))).toMatch(/gagal/i);
   });
 });

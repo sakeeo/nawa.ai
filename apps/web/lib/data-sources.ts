@@ -82,3 +82,17 @@ export function describeDiscovery(summary: DiscoverySummary): string {
     ? base
     : `${base} Contoh nilai baru diambil setelah Anda menyimpan model semantik: simpan model, lalu jalankan Discover lagi.`;
 }
+
+export function describeAskError(error: unknown): string {
+  if (!(error instanceof ApiError)) return "Pertanyaan gagal diproses. Coba lagi.";
+  switch (error.status) {
+    case 429:
+      return "Terlalu banyak pertanyaan. Coba lagi sebentar lagi.";
+    case 503:
+      return "Model AI sedang tidak tersedia. Coba lagi nanti.";
+    case 403:
+      return "Anda tidak memiliki izin untuk bertanya pada data ini.";
+    default:
+      return error.detail || "Pertanyaan gagal diproses. Coba lagi.";
+  }
+}

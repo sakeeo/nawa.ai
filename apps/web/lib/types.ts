@@ -138,3 +138,40 @@ export type DiscoverySummary = {
 };
 export type SemanticModelRead = { version: number; yaml: string; created_at: string };
 export type SemanticDraft = { yaml: string };
+
+export type ChartKind = "kpi" | "bar" | "line" | "table";
+export type ChartSpec = { kind: ChartKind; x: string | null; y: string[]; title: string };
+export type AskStatus = "ok" | "blocked" | "error" | "clarification";
+export type AskResponse = {
+  query_id: string;
+  status: AskStatus;
+  sql: string | null;
+  assumptions: string[];
+  clarification: string | null;
+  blocked_reason: string | null;
+  error: string | null;
+  columns: string[];
+  rows: unknown[][];
+  row_count: number;
+  truncated: boolean;
+  duration_ms: number;
+  chart: ChartSpec | null;
+  attempts: number;
+  linked_tables: string[];
+};
+export type InsightRead = { text: string; grounded: boolean; cached: boolean };
+export type QueryLogEntry = {
+  id: string;
+  user_id: string | null;
+  question: string;
+  sql: string | null;
+  status: string;
+  blocked_reason: string | null;
+  attempts: number;
+  row_count: number | null;
+  duration_ms: number;
+  insight: string | null;
+  insight_grounded: boolean | null;
+  feedback: number | null;
+  created_at: string;
+};
