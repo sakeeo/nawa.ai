@@ -58,3 +58,8 @@ def test_sql_prompts_load_and_render_with_their_placeholders() -> None:
     repair = registry.get("sql_repair", version=1)
     text = repair.render(previous_sql="SELECT 1", error="boom")
     assert "SELECT 1" in text and "boom" in text
+
+
+def test_insight_prompt_loads_and_needs_no_placeholders() -> None:
+    prompt = PromptRegistry().get("insight", version=1)
+    assert prompt.version == 1 and "ONLY numbers" in prompt.render()
