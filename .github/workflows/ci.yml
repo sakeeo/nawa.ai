@@ -20,7 +20,7 @@ jobs:
         working-directory: apps/api
     services:
       postgres:
-        image: postgres:16
+        image: pgvector/pgvector:pg16
         env:
           # Throwaway database on an ephemeral runner; not a product credential.
           POSTGRES_USER: ci_owner

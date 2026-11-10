@@ -48,3 +48,12 @@ def test_auth_defaults_and_cookie_secure(monkeypatch: pytest.MonkeyPatch) -> Non
     assert settings.cookie_secure is False
     monkeypatch.setenv("ENVIRONMENT", "production")
     assert Settings(_env_file=None).cookie_secure is True
+
+
+def test_knowledge_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@h/db")
+    monkeypatch.setenv("REDIS_URL", "redis://h:6379/0")
+    settings = Settings(_env_file=None)
+    assert settings.upload_dir == "/data/uploads"
+    assert settings.max_upload_bytes == 20 * 1024 * 1024
+    assert settings.max_pdf_pages == 200

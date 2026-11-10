@@ -42,6 +42,23 @@ services:
       retries: 20
       start_period: 10s
 
+  reranker:
+    <<: *restart
+    profiles: ["reranker"]
+    # Pinned CPU build of Hugging Face text-embeddings-inference. The model (~2.3 GB) is cached in
+    # the reranker_data volume, so it runs offline after the first start.
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.4
+    # The default batch (16384 tokens) is run once as warm-up and gets OOM-killed on a 16 GB host.
+    command: ["--model-id", "BAAI/bge-reranker-v2-m3", "--port", "80", "--max-batch-tokens", "2048"]
+    ports: ["127.0.0.1:8081:80"]
+    volumes: [reranker_data:/data]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:80/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 40
+      start_period: 120s
+
   migrate:
     build:
       context: ./apps/api
@@ -65,6 +82,7 @@ services:
     environment:
       OFFLINE_MODE: ${OFFLINE_MODE:-false}
     ports: ["127.0.0.1:8000:8000"]
+    volumes: [uploads:/data/uploads]
     depends_on:
       postgres: {condition: service_healthy}
       redis: {condition: service_healthy}
@@ -74,6 +92,20 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
+
+  worker:
+    <<: *restart
+    image: nawa-api:dev
+    env_file: .env
+    environment:
+      OFFLINE_MODE: ${OFFLINE_MODE:-false}
+    command: ["arq", "nawa.worker.WorkerSettings"]
+    volumes: [uploads:/data/uploads]
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      ollama: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
 
   web:
     <<: *restart
@@ -209,6 +241,8 @@ volumes:
   postgres_data:
   redis_data:
   ollama_data:
+  reranker_data:
+  uploads:
   langfuse_db_data:
   clickhouse_data:
   minio_data:

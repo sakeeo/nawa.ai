@@ -1,0 +1,7 @@
+name: refuse
+version: 1
+description: Fixed refusal shown when the documents do not contain the answer.
+template: |
+  Informasi tersebut tidak ditemukan di dokumen yang tersedia. Coba ubah pertanyaan dengan kata kunci lain, atau periksa halaman Knowledge untuk memastikan dokumen yang relevan sudah diunggah.
+
+  The requested information was not found in the available documents. Try rephrasing the question, or check the Knowledge page to confirm the relevant document has been uploaded.

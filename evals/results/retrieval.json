@@ -1,0 +1,149 @@
+{
+  "arms": [
+    {
+      "config": {
+        "chunker": "heading",
+        "embedding_model": null,
+        "generate": false,
+        "generator_model": null,
+        "judge_enabled": false,
+        "name": "retrieval-vector",
+        "retrieval_strategy": "vector",
+        "use_rerank": false
+      },
+      "counts": {
+        "errors": 0,
+        "evaluated_answerable": 60,
+        "evaluated_injection": 5,
+        "evaluated_unanswerable": 10,
+        "faithfulness_scored": 0,
+        "items": 75,
+        "judge_errors": 0,
+        "judged": 0
+      },
+      "git_commit": "6790745",
+      "litellm_version": "1.108.1",
+      "metrics": {
+        "citation_accuracy": 0.0,
+        "correct_refusal_rate": 0.0,
+        "faithfulness": 0.0,
+        "injection_resistance": 1.0,
+        "mrr": 0.9638888888888889,
+        "p50_plan_ms": 162.10569599934388,
+        "p50_ttft_ms": 0.0,
+        "p95_plan_ms": 261.55524400019203,
+        "p95_ttft_ms": 0.0,
+        "recall_at_5": 1.0
+      },
+      "models": {
+        "embedding": "ollama/bge-m3",
+        "generator": "deepseek/deepseek-chat",
+        "judge": ""
+      },
+      "name": "retrieval-vector",
+      "reason": "",
+      "run_id": "390a2d71-a3f1-44d1-87cb-dc499be1d140",
+      "seed": null,
+      "status": "ok"
+    },
+    {
+      "config": {
+        "chunker": "heading",
+        "embedding_model": null,
+        "generate": false,
+        "generator_model": null,
+        "judge_enabled": false,
+        "name": "retrieval-keyword",
+        "retrieval_strategy": "keyword",
+        "use_rerank": false
+      },
+      "counts": {
+        "errors": 0,
+        "evaluated_answerable": 60,
+        "evaluated_injection": 5,
+        "evaluated_unanswerable": 10,
+        "faithfulness_scored": 0,
+        "items": 75,
+        "judge_errors": 0,
+        "judged": 0
+      },
+      "git_commit": "6790745",
+      "litellm_version": "1.108.1",
+      "metrics": {
+        "citation_accuracy": 0.0,
+        "correct_refusal_rate": 1.0,
+        "faithfulness": 0.0,
+        "injection_resistance": 1.0,
+        "mrr": 0.8694444444444444,
+        "p50_plan_ms": 4.926819000502292,
+        "p50_ttft_ms": 0.0,
+        "p95_plan_ms": 7.703741999648628,
+        "p95_ttft_ms": 0.0,
+        "recall_at_5": 0.9833333333333333
+      },
+      "models": {
+        "embedding": "ollama/bge-m3",
+        "generator": "deepseek/deepseek-chat",
+        "judge": ""
+      },
+      "name": "retrieval-keyword",
+      "reason": "",
+      "run_id": "2c90d061-e038-41d8-b17a-c45bfeb1384c",
+      "seed": null,
+      "status": "ok"
+    },
+    {
+      "config": {
+        "chunker": "heading",
+        "embedding_model": null,
+        "generate": false,
+        "generator_model": null,
+        "judge_enabled": false,
+        "name": "retrieval-hybrid",
+        "retrieval_strategy": "hybrid",
+        "use_rerank": false
+      },
+      "counts": {
+        "errors": 0,
+        "evaluated_answerable": 60,
+        "evaluated_injection": 5,
+        "evaluated_unanswerable": 10,
+        "faithfulness_scored": 0,
+        "items": 75,
+        "judge_errors": 0,
+        "judged": 0
+      },
+      "git_commit": "6790745",
+      "litellm_version": "1.108.1",
+      "metrics": {
+        "citation_accuracy": 0.0,
+        "correct_refusal_rate": 0.0,
+        "faithfulness": 0.0,
+        "injection_resistance": 1.0,
+        "mrr": 0.9458333333333333,
+        "p50_plan_ms": 177.6492019998841,
+        "p50_ttft_ms": 0.0,
+        "p95_plan_ms": 248.25426299958053,
+        "p95_ttft_ms": 0.0,
+        "recall_at_5": 1.0
+      },
+      "models": {
+        "embedding": "ollama/bge-m3",
+        "generator": "deepseek/deepseek-chat",
+        "judge": ""
+      },
+      "name": "retrieval-hybrid",
+      "reason": "",
+      "run_id": "0b7068d3-532c-46bc-8552-504fac34439c",
+      "seed": null,
+      "status": "ok"
+    }
+  ],
+  "metrics": [
+    "recall_at_5",
+    "mrr"
+  ],
+  "name": "retrieval",
+  "note": "",
+  "title": "Retrieval strategy"
+}

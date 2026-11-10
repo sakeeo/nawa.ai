@@ -111,7 +111,7 @@ docker run -d --rm --name nawa-test-pg -e POSTGRES_USER=ci_owner -e POSTGRES_PAS
 cd apps/api && TEST_DATABASE_OWNER_URL=postgresql+asyncpg://ci_owner:ci-owner-password@127.0.0.1:55432/postgres uv run pytest
 ```
 
-**Perintah.** Python memakai `uv`, frontend memakai `pnpm`. `make dev`, `make dev-lite`, `make down`, `make test`, `make lint`, `make offline-smoke`; `make seed` memuat data demo; `make eval` belum berfungsi.
+**Perintah.** Python memakai `uv`, frontend memakai `pnpm`. `make dev`, `make dev-lite`, `make down`, `make test`, `make lint`, `make offline-smoke`; `make seed` memuat data demo; `make eval` menjalankan golden dataset (online, data sintetis, lihat README); `make eval-experiments NAME=<x>` dan `make eval-report` menghasilkan `docs/evaluation-report.md`.
 
 **Graf kode (graphify).** Bila `graphify-out/graph.json` ada, jalankan `graphify query "<pertanyaan>"` sebelum menyisir banyak berkas; untuk satu pencarian terarah, pencarian biasa cukup. Setelah perubahan struktur, jalankan `graphify update .` (hanya AST, tanpa biaya LLM). Rebuild penuh (`/graphify .`) memakai LLM: tanya pengguna dulu.
 

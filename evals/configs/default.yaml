@@ -1,0 +1,8 @@
+# Default `make eval` configuration: heading-aware chunks, hybrid retrieval, full generation,
+# LLM judge on. Experiment configurations (T1-14) live next to this file.
+name: default
+chunker: heading
+retrieval_strategy: hybrid
+use_rerank: false
+judge_enabled: true
+generate: true

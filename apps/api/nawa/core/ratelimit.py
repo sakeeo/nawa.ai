@@ -9,7 +9,8 @@ from nawa.core.config import Settings, get_settings
 
 @lru_cache
 def _client(url: str) -> Redis:
-    return Redis.from_url(url)
+    client: Redis = Redis.from_url(url)  # redis 5.x types from_url as Any
+    return client
 
 
 def get_redis(settings: Annotated[Settings, Depends(get_settings)]) -> Redis:

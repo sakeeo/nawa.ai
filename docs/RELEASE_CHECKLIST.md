@@ -1,7 +1,7 @@
 # Release checklist
 
 Run this before declaring a phase released. Tick each item and record the date and commit.
-Phase 0 acceptance (T0-21) uses the "Phase 0" items.
+Phase 0 acceptance (T0-21) uses the "Phase 0" items; Phase 1 acceptance (T1-16) adds the "Phase 1" block at the end.
 
 ## Automated
 
@@ -32,3 +32,29 @@ Phase 0 acceptance (T0-21) uses the "Phase 0" items.
 - [x] Documents match behaviour (see `docs/WORKFLOW.md` section 0.4). (2026-11-08: README and .env.example updated for Langfuse; other docs checked)
 - [x] Feature branch merged into `master` with a merge commit. (2026-11-08, f415ac2)
 - [x] Version and commit hash recorded in `roadmap/PHASE <n> - <Name>/PROGRESS.md`. (2026-11-08, Phase 0 = 0.1.0 at 0672896)
+
+## Phase 1: Knowledge Intelligence
+
+Automated gate (local, 2026-11-09, 100602b plus the Makefile fix of the same day):
+
+- [x] `cd apps/api && uv run pytest` with a pgvector `TEST_DATABASE_OWNER_URL` and `CI=true`: 404 collected, zero skipped, 402 passed; the 2 `tests/integration/test_setup.py` failures come only from `DEEPSEEK_API_KEY` leaking in from the repo `.env` and pass (15 of 15) with `DEEPSEEK_API_KEY=` empty, as in CI.
+- [x] `make lint` clean (ruff, ruff format, mypy, import-linter, eslint, `tsc`).
+- [x] `cd apps/web && pnpm test && pnpm build`: 39 tests passed, build ok.
+- [x] `make offline-smoke`: chat via `ollama/qwen2.5:7b`, embedding dimension 1024, internet blocked.
+- [ ] CI is green on the pushed release commit (record the commit hash).
+
+Manual, from a fresh clone (new directory, new Compose project name, new volumes, `.env` from `.env.example`, `make dev`):
+
+- [ ] Upload PDF, DOCX, TXT and MD in the web UI; each reaches `ready`; a corrupt file reaches `failed` with a readable error.
+- [ ] Demo documents load through the wizard option and the Knowledge page shows them `ready`.
+- [ ] "Apa prosedur jika pelanggan komplain makanannya tidak layak?" answers with a clickable citation to the complaint policy.
+- [ ] An unanswerable question is refused ("tidak ditemukan"); no citation chips.
+- [ ] An injection document does not change the assistant's behaviour (ask the five trap questions).
+- [ ] A viewer cannot upload or delete; a member cannot upload; a member of another workspace cannot read the chunk or the conversation.
+- [ ] Feedback thumbs up/down is stored (check the `feedback` table) and survives a reload.
+- [ ] Streaming survives the Next.js rewrite proxy (tokens arrive progressively, Stop works).
+- [ ] The answer call appears in Langfuse with prompt name and version, tokens and latency.
+- [ ] Chat works with the internet blocked (local model); `make offline-smoke` only covers the gateway and embeddings.
+- [ ] `docs/evaluation-report.md` matches the latest run and states which targets were met or missed (see the report: all seven met with DeepSeek as generator; the local 7B model misses latency, citation accuracy and injection resistance).
+- [ ] ADRs 0008-0010 present and consistent with the code.
+- [ ] Merged into `master` with a merge commit; version and hashes recorded in `PROGRESS.md`.

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { ApiError, api } from "@/lib/api";
@@ -75,6 +76,14 @@ export default function WorkspacePage() {
     <div>
       <h1 className="text-2xl font-semibold">{workspace?.name ?? "Workspace"}</h1>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      <nav className="mt-3 flex gap-4 text-sm">
+        <Link href={`/workspaces/${id}/knowledge`} className="underline">
+          Knowledge
+        </Link>
+        <Link href={`/workspaces/${id}/assistant`} className="underline">
+          AI Assistant
+        </Link>
+      </nav>
 
       <h2 className="mt-6 text-lg font-medium">Members</h2>
       <table className="mt-2 w-full rounded border bg-white text-sm">

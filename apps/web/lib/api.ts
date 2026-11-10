@@ -1,3 +1,12 @@
+import { parseSse } from "@/lib/sse";
+import type {
+  ChatEvent,
+  ChunkOut,
+  ConversationDetail,
+  ConversationSummary,
+  DocumentOut,
+} from "@/lib/types";
+
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
@@ -32,10 +41,20 @@ function describeDetail(detail: unknown): string {
   return "";
 }
 
+async function toApiError(response: Response): Promise<ApiError> {
+  let problem: { title?: string; detail?: unknown } = {};
+  try {
+    problem = (await response.json()) as typeof problem;
+  } catch {
+    // Body is not JSON; fall back to the status text.
+  }
+  return new ApiError(response.status, problem.title ?? response.statusText, describeDetail(problem.detail));
+}
+
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const method = (init.method ?? "GET").toUpperCase();
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
     ...(init.headers as Record<string, string> | undefined),
   };
   if (!SAFE_METHODS.has(method)) {
@@ -43,15 +62,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     if (token) headers["X-CSRF-Token"] = token;
   }
   const response = await fetch(`/api/v1${path}`, { ...init, credentials: "same-origin", headers });
-  if (!response.ok) {
-    let problem: { title?: string; detail?: unknown } = {};
-    try {
-      problem = (await response.json()) as typeof problem;
-    } catch {
-      // Body is not JSON; fall back to the status text.
-    }
-    throw new ApiError(response.status, problem.title ?? response.statusText, describeDetail(problem.detail));
-  }
+  if (!response.ok) throw await toApiError(response);
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
@@ -60,7 +71,55 @@ function withBody(method: string, body?: unknown): RequestInit {
   return { method, body: body === undefined ? undefined : JSON.stringify(body) };
 }
 
+/**
+ * Streams the answer to a question as chat events. Throws ApiError before the first event on a
+ * non-2xx response. Aborting `signal` cancels the request.
+ */
+export async function* streamChat(
+  workspaceId: string,
+  question: string,
+  conversationId: string | null,
+  signal?: AbortSignal,
+): AsyncGenerator<ChatEvent> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = csrfToken();
+  if (token) headers["X-CSRF-Token"] = token;
+  const response = await fetch(`/api/v1/workspaces/${workspaceId}/chat`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers,
+    body: JSON.stringify({ question, conversation_id: conversationId }),
+    signal,
+  });
+  if (!response.ok) throw await toApiError(response);
+  if (!response.body) return;
+  yield* parseSse(response.body);
+}
+
 export const api = {
+  streamChat,
+  listConversations: (workspaceId: string) =>
+    apiFetch<ConversationSummary[]>(`/workspaces/${workspaceId}/conversations`),
+  getConversation: (workspaceId: string, conversationId: string) =>
+    apiFetch<ConversationDetail>(`/workspaces/${workspaceId}/conversations/${conversationId}`),
+  sendFeedback: (workspaceId: string, messageId: string, value: 1 | -1, comment?: string) =>
+    apiFetch<void>(`/workspaces/${workspaceId}/messages/${messageId}/feedback`, {
+      method: "POST",
+      body: JSON.stringify({ value, comment: comment || null }),
+    }),
+  listDocuments: (workspaceId: string) => apiFetch<DocumentOut[]>(`/workspaces/${workspaceId}/documents`),
+  // The browser sets the multipart Content-Type (with its boundary) for FormData.
+  uploadDocument: (workspaceId: string, file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return apiFetch<DocumentOut>(`/workspaces/${workspaceId}/documents`, { method: "POST", body: form });
+  },
+  deleteDocument: (workspaceId: string, documentId: string) =>
+    apiFetch<void>(`/workspaces/${workspaceId}/documents/${documentId}`, { method: "DELETE" }),
+  retryDocument: (workspaceId: string, documentId: string) =>
+    apiFetch<DocumentOut>(`/workspaces/${workspaceId}/documents/${documentId}/retry`, { method: "POST" }),
+  getChunk: (workspaceId: string, chunkId: string) =>
+    apiFetch<ChunkOut>(`/workspaces/${workspaceId}/chunks/${chunkId}`),
   get: <T>(path: string) => apiFetch<T>(path),
   post: <T>(path: string, body?: unknown) => apiFetch<T>(path, withBody("POST", body)),
   patch: <T>(path: string, body?: unknown) => apiFetch<T>(path, withBody("PATCH", body)),

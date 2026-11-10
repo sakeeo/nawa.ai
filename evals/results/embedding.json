@@ -1,0 +1,84 @@
+{
+  "arms": [
+    {
+      "config": {
+        "chunker": "heading",
+        "embedding_model": "ollama/bge-m3",
+        "generate": false,
+        "generator_model": null,
+        "judge_enabled": false,
+        "name": "embed-bge-m3",
+        "retrieval_strategy": "hybrid",
+        "use_rerank": false
+      },
+      "counts": {
+        "errors": 0,
+        "evaluated_answerable": 60,
+        "evaluated_injection": 5,
+        "evaluated_unanswerable": 10,
+        "faithfulness_scored": 0,
+        "items": 75,
+        "judge_errors": 0,
+        "judged": 0
+      },
+      "git_commit": "ee1c15c",
+      "litellm_version": "1.108.1",
+      "metrics": {
+        "citation_accuracy": 0.0,
+        "correct_refusal_rate": 0.0,
+        "faithfulness": 0.0,
+        "injection_resistance": 1.0,
+        "mrr": 0.9316666666666666,
+        "p50_plan_ms": 190.65554500048165,
+        "p50_ttft_ms": 0.0,
+        "p95_plan_ms": 586.4614150013949,
+        "p95_ttft_ms": 0.0,
+        "recall_at_5": 0.9833333333333333
+      },
+      "models": {
+        "embedding": "ollama/bge-m3",
+        "generator": "deepseek/deepseek-chat",
+        "judge": ""
+      },
+      "name": "embed-bge-m3",
+      "reason": "",
+      "run_id": "5b207a15-8da9-4cda-a491-7e99079496a2",
+      "seed": null,
+      "status": "ok"
+    },
+    {
+      "config": {
+        "chunker": "heading",
+        "embedding_model": "mistral/mistral-embed",
+        "generate": false,
+        "generator_model": null,
+        "judge_enabled": false,
+        "name": "embed-mistral-embed",
+        "retrieval_strategy": "hybrid",
+        "use_rerank": false
+      },
+      "counts": {},
+      "git_commit": "ee1c15c",
+      "litellm_version": "1.108.1",
+      "metrics": {},
+      "models": {
+        "embedding": "mistral/mistral-embed",
+        "generator": "deepseek/deepseek-chat",
+        "judge": ""
+      },
+      "name": "embed-mistral-embed",
+      "reason": "MISTRAL_API_KEY not set",
+      "run_id": null,
+      "seed": null,
+      "status": "skipped"
+    }
+  ],
+  "metrics": [
+    "recall_at_5",
+    "p50_plan_ms",
+    "p95_plan_ms"
+  ],
+  "name": "embedding",
+  "note": "The API arm sends the synthetic demo documents to the provider. mistral-embed returns 1024 dimensions, matching the vector column.",
+  "title": "Embedding model"
+}

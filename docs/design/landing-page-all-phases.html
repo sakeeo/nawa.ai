@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAWA.AI — Make your company data more valuable</title>
+<meta name="description" content="Turn company documents and databases into answers, insights, and reports. Self-hosted, so your data never leaves.">
+<script>
+  // Set theme before first paint to avoid a flash.
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem("nawa-theme"); } catch (e) {}
+    if (t !== "light" && t !== "dark") {
+      t = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+    document.documentElement.setAttribute("data-theme", t);
+  })();
+</script>
+<style>
+  /* Tokens mirror docs/design/dashboard-mockup.html and docs/design-system.md */
+  :root {
+    --bg: #f4f7fb; --surface: #ffffff; --surface-2: #eef3f8; --border: #dde5ee;
+    --text: #0e1b2c; --text-2: #41506a; --text-3: #56657a;
+    --brand: #005a9c; --brand-strong: #1b365d; --brand-soft: #e6f4fa; --on-brand: #ffffff;
+    --accent: #60c1e5; --accent-soft: #a0e0ef;
+    --status-good: #0ca30c; --status-warning: #fab219; --status-critical: #d03b3b;
+    --hero-glow-1: rgb(96 193 229 / 0.35); --hero-glow-2: rgb(0 90 156 / 0.18);
+    --band-bg: #1b365d; --band-text: #e7eef6; --band-muted: #a9bad0;
+    --shadow-1: 0 1px 2px rgb(16 24 40 / 0.06);
+    --shadow-2: 0 18px 48px rgb(16 24 40 / 0.14);
+    --header-bg: rgb(244 247 251 / 0.8);
+    --radius-sm: 6px; --radius-md: 10px; --radius-lg: 16px; --radius-full: 999px;
+    --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Menlo, Consolas, monospace;
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0a1524; --surface: #0f1d31; --surface-2: #16263d; --border: #23344d;
+    --text: #e7eef6; --text-2: #a9bad0; --text-3: #8597b0;
+    --brand: #60c1e5; --brand-strong: #a0e0ef; --brand-soft: #12304f; --on-brand: #0b1a2e;
+    --hero-glow-1: rgb(96 193 229 / 0.18); --hero-glow-2: rgb(0 90 156 / 0.35);
+    --band-bg: #0b1628; --band-text: #e7eef6; --band-muted: #a9bad0;
+    --shadow-1: none;
+    --shadow-2: 0 18px 48px rgb(0 0 0 / 0.5);
+    --header-bg: rgb(10 21 36 / 0.8);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: var(--font-sans); font-size: 16px; line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--brand); }
+  img, svg { max-width: 100%; }
+  :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 4px; }
+  .container { width: min(1120px, 100% - 32px); margin-inline: auto; }
+  .mono { font-family: var(--font-mono); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- Header ---------- */
+  header.site {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--header-bg); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav { display: flex; align-items: center; gap: 24px; height: 64px; }
+  .logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; letter-spacing: 0.01em; color: var(--text); text-decoration: none; }
+  .logo-mark { width: 30px; height: 30px; border-radius: 9px; background: var(--accent); color: #1b365d; display: grid; place-items: center; font-size: 14px; font-weight: 800; }
+  .nav-links { display: flex; gap: 4px; margin-left: 16px; }
+  .nav-links a { color: var(--text-2); text-decoration: none; font-size: 14px; font-weight: 500; padding: 8px 12px; border-radius: var(--radius-sm); }
+  .nav-links a:hover { color: var(--text); background: var(--surface-2); }
+  .nav-tools { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+  .segmented { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
+  .segmented button {
+    height: 34px; min-width: 40px; padding: 0 10px; border: 0; background: none; color: var(--text-2);
+    font: 600 13px var(--font-sans); cursor: pointer;
+  }
+  .segmented button[aria-pressed="true"] { background: var(--brand-soft); color: var(--brand); }
+  .segmented button:hover:not([aria-pressed="true"]) { background: var(--surface-2); }
+  .icon-btn {
+    width: 36px; height: 36px; display: grid; place-items: center; border-radius: var(--radius-sm);
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-2); cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+  .icon-btn svg { width: 18px; height: 18px; }
+  .icon-sun { display: none; }
+  :root[data-theme="dark"] .icon-sun { display: block; }
+  :root[data-theme="dark"] .icon-moon { display: none; }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; padding: 0 22px;
+    border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font: 600 15px var(--font-sans); text-decoration: none; cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+  }
+  .btn:hover { transform: translateY(-1px); box-shadow: var(--shadow-2); }
+  .btn-primary { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+  .btn-primary:hover { background: var(--brand-strong); border-color: var(--brand-strong); color: #fff; }
+  :root[data-theme="dark"] .btn-primary:hover { color: #0b1a2e; }
+  .btn-sm { height: 36px; padding: 0 14px; font-size: 14px; }
+
+  /* ---------- Hero ---------- */
+  .hero { position: relative; overflow: hidden; padding: 88px 0 72px; }
+  .hero::before, .hero::after { content: ""; position: absolute; border-radius: 50%; filter: blur(80px); z-index: 0; pointer-events: none; }
+  .hero::before { width: 520px; height: 520px; background: var(--hero-glow-1); top: -160px; right: -80px; }
+  .hero::after { width: 480px; height: 480px; background: var(--hero-glow-2); bottom: -220px; left: -120px; }
+  .hero .container { position: relative; z-index: 1; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; }
+  .hero .container > *, .split > * { min-width: 0; }
+  .mock-body > * { min-width: 0; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: var(--radius-full);
+    background: var(--brand-soft); color: var(--brand); font-size: 13px; font-weight: 600;
+  }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); }
+  h1 { font-size: clamp(34px, 5vw, 56px); line-height: 1.08; letter-spacing: -0.02em; margin: 20px 0 20px; font-weight: 800; }
+  h1 .grad { background: linear-gradient(90deg, var(--brand), var(--accent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lead { font-size: 18px; color: var(--text-2); max-width: 56ch; margin: 0 0 32px; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+  .trust { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 0; margin: 0; list-style: none; color: var(--text-2); font-size: 14px; }
+  .trust li { display: inline-flex; align-items: center; gap: 8px; }
+  .trust svg { width: 16px; height: 16px; color: var(--status-good); flex: none; }
+
+  /* Hero product mock */
+  .mock { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2); overflow: hidden; }
+  .mock-bar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+  .mock-bar i { width: 10px; height: 10px; border-radius: 50%; background: var(--border); display: block; }
+  .mock-bar .badge { margin-left: auto; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: var(--radius-full); background: var(--brand-soft); color: var(--brand); font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .badge svg { width: 13px; height: 13px; }
+  .mock-body { padding: 20px; display: grid; gap: 14px; }
+  .bubble-q { justify-self: end; max-width: 88%; background: var(--brand); color: var(--on-brand); padding: 10px 14px; border-radius: 14px 14px 4px 14px; font-size: 14px; }
+  .bubble-a { background: var(--surface-2); border: 1px solid var(--border); padding: 12px 14px; border-radius: 14px 14px 14px 4px; font-size: 14px; color: var(--text); }
+  .cite { display: inline-grid; place-items: center; min-width: 20px; height: 18px; padding: 0 5px; margin: 0 2px; border-radius: 5px; background: var(--brand-soft); color: var(--brand); font-size: 11px; font-weight: 700; vertical-align: 1px; }
+  .src { margin-top: 8px; font-size: 12px; color: var(--text-3); }
+  .sql { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px; font: 12.5px/1.6 var(--font-mono); color: var(--text-2); overflow-x: auto; white-space: pre; }
+  .sql b { color: var(--brand); font-weight: 600; }
+  .sql-cap { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-3); margin-top: 6px; }
+  .bars { display: grid; gap: 7px; margin-top: 4px; }
+  .bar { display: grid; grid-template-columns: 74px 1fr 38px; align-items: center; gap: 10px; font-size: 12px; color: var(--text-2); }
+  .bar span.t { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; border: 1px solid var(--border); }
+  .bar span.t i { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
+  .bar.low span.t i { background: #eb6834; }
+
+  /* ---------- Sections ---------- */
+  section { padding: 88px 0; }
+  .section-head { max-width: 720px; margin: 0 0 48px; }
+  .kicker { color: var(--brand); font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 12px; }
+  h2 { font-size: clamp(28px, 3.6vw, 40px); line-height: 1.15; letter-spacing: -0.015em; margin: 0 0 16px; font-weight: 800; }
+  .sub { color: var(--text-2); font-size: 18px; margin: 0; }
+  h3 { font-size: 19px; line-height: 1.3; margin: 0 0 8px; font-weight: 700; }
+  .alt { background: var(--surface); border-block: 1px solid var(--border); }
+
+  .grid { display: grid; gap: 20px; }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; box-shadow: var(--shadow-1); transition: transform .2s ease, box-shadow .2s ease; }
+  .alt .card { background: var(--bg); }
+  .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-2); }
+  .card p { margin: 0; color: var(--text-2); }
+  .ico { width: 44px; height: 44px; border-radius: 12px; background: var(--brand-soft); color: var(--brand); display: grid; place-items: center; margin-bottom: 18px; }
+  .ico svg { width: 22px; height: 22px; }
+  .example { margin-top: 14px; padding: 10px 12px; border-left: 3px solid var(--accent); background: var(--brand-soft); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 14px; color: var(--text-2); }
+
+  /* Problem */
+  .pain { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+  .pain li { display: flex; gap: 14px; align-items: flex-start; padding: 18px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); color: var(--text-2); }
+  .pain svg { width: 20px; height: 20px; color: #eb6834; flex: none; margin-top: 3px; }
+  .bridge { margin-top: 28px; font-size: 20px; font-weight: 700; }
+  .split { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 56px; align-items: start; }
+
+  /* Self-hosted band */
+  .band { background: var(--band-bg); color: var(--band-text); }
+  .band .kicker { color: var(--accent); }
+  .band .sub { color: var(--band-muted); }
+  .band table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .band th, .band td { text-align: left; padding: 18px 20px; border-bottom: 1px solid rgb(255 255 255 / 0.12); vertical-align: top; }
+  .band th { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--band-muted); font-weight: 600; }
+  .band td:first-child { font-weight: 600; width: 38%; color: var(--accent-soft); }
+  .band td:last-child { color: var(--band-text); }
+  .band tr:last-child td { border-bottom: 0; }
+
+  /* Control list */
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; gap: 16px; }
+  .checks li { display: flex; gap: 14px; align-items: flex-start; color: var(--text-2); }
+  .checks li strong { color: var(--text); }
+  .checks svg { width: 22px; height: 22px; color: var(--status-good); flex: none; margin-top: 2px; }
+
+  /* Steps */
+  .steps { counter-reset: s; display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; list-style: none; padding: 0; margin: 0; }
+  .steps li { counter-increment: s; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px 24px; position: relative; }
+  .steps li::before { content: counter(s); display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--brand); color: var(--on-brand); font-weight: 800; margin-bottom: 16px; }
+  .steps p { margin: 0; color: var(--text-2); font-size: 15px; }
+
+  /* Roles */
+  .role h3 { display: flex; align-items: center; gap: 10px; }
+  .role p { font-size: 15px; }
+
+  /* Code */
+  pre.code { margin: 0; background: #0b1628; color: #d6e2f0; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 20px; font: 13.5px/1.7 var(--font-mono); overflow-x: auto; }
+  pre.code .c { color: #8fb0d3; }
+  .specs { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; color: var(--text-2); }
+  .specs li { display: flex; gap: 12px; }
+  .specs li::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-top: 9px; flex: none; }
+
+  /* FAQ */
+  .faq { display: grid; gap: 12px; max-width: 820px; }
+  details { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); }
+  summary { cursor: pointer; padding: 18px 22px; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: 16px; align-items: center; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-size: 22px; line-height: 1; color: var(--brand); transition: transform .2s ease; }
+  details[open] summary::after { transform: rotate(45deg); }
+  details p { margin: 0; padding: 0 22px 20px; color: var(--text-2); }
+
+  /* Final CTA */
+  .final { background: linear-gradient(135deg, var(--brand-strong), var(--brand)); color: #fff; border-radius: 24px; padding: 64px 32px; text-align: center; position: relative; overflow: hidden; }
+  :root[data-theme="dark"] .final { background: linear-gradient(135deg, #12304f, #0f4a7a); }
+  .final h2 { color: #fff; }
+  .final p { color: rgb(255 255 255 / 0.82); font-size: 18px; margin: 0 auto 32px; max-width: 52ch; }
+  .final .cta-row { justify-content: center; margin: 0; }
+  .final .btn-primary { background: #fff; color: #1b365d; border-color: #fff; }
+  .final .btn-primary:hover { background: var(--accent-soft); border-color: var(--accent-soft); color: #1b365d; }
+  .final .btn:not(.btn-primary) { background: transparent; color: #fff; border-color: rgb(255 255 255 / 0.4); }
+
+  footer.site { padding: 40px 0 56px; border-top: 1px solid var(--border); color: var(--text-3); font-size: 14px; }
+  footer.site .row { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: center; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 960px) {
+    .hero .container, .split { grid-template-columns: 1fr; gap: 40px; }
+    .g3, .g4, .steps { grid-template-columns: repeat(2, 1fr); }
+    .nav-links { display: none; }
+  }
+  @media (max-width: 620px) {
+    section { padding: 64px 0; }
+    .hero { padding: 56px 0 48px; }
+    .g2, .g3, .g4, .steps { grid-template-columns: 1fr; }
+    .btn { width: 100%; }
+    .nav-tools .btn { display: none; }
+    .band th:nth-child(2), .band td:last-child { display: block; padding-top: 0; }
+    .band td:first-child { width: auto; display: block; border-bottom: 0; padding-bottom: 4px; }
+    .band thead { display: none; }
+    .final { padding: 48px 20px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; scroll-behavior: auto !important; }
+  }
+
+  /* Stage cards (all-phases version) */
+  .stage .tag { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 600; color: var(--brand); }
+  .stage .tag b { display: grid; place-items: center; min-width: 30px; height: 30px; padding: 0 6px; border-radius: 9px; background: var(--brand-soft); font-family: var(--font-mono); font-size: 12px; }
+  .stage p { margin-bottom: 16px; }
+  ul.mini { list-style: none; margin: 0; padding: 16px 0 0; border-top: 1px solid var(--border); display: grid; gap: 10px; font-size: 14.5px; color: var(--text-2); }
+  ul.mini li { display: flex; gap: 10px; }
+  ul.mini li::before { content: ""; width: 14px; height: 14px; flex: none; margin-top: 4px; background: var(--status-good); -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/contain no-repeat; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="container nav">
+    <a class="logo" href="#top" aria-label="NAWA.AI home"><span class="logo-mark">N</span>NAWA.AI</a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#outcomes" data-i18n="nav_outcomes">Outcomes</a>
+      <a href="#privacy" data-i18n="nav_privacy">Privacy</a>
+      <a href="#control" data-i18n="nav_control">Control</a>
+      <a href="#start" data-i18n="nav_start">Get started</a>
+      <a href="#faq" data-i18n="nav_faq">FAQ</a>
+    </nav>
+    <div class="nav-tools">
+      <div class="segmented" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="id" aria-pressed="false">ID</button>
+      </div>
+      <button type="button" class="icon-btn" id="theme-toggle" aria-label="Switch to dark theme" title="Toggle theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <a class="btn btn-primary btn-sm" href="#contact" data-i18n="cta_demo_short">Book a demo</a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="container">
+      <div>
+        <span class="eyebrow"><span class="dot"></span><span data-i18n="hero_eyebrow">Turn company data into company value</span></span>
+        <h1><span data-i18n="hero_h1_a">Your data already holds the answers.</span> <span class="grad" data-i18n="hero_h1_b">Now you can reach them.</span></h1>
+        <p class="lead" data-i18n="hero_lead">NAWA.AI turns your documents and databases into cited answers, insights, and reports. It runs on your own servers, so your data never leaves.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="#contact" data-i18n="cta_demo">Book a demo</a>
+          <a class="btn" href="#how" data-i18n="cta_see">See how it works</a>
+        </div>
+        <ul class="trust">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="trust_1">Insights in seconds</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="trust_2">Every answer cited</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="trust_3">Data stays yours</span></li>
+        </ul>
+      </div>
+
+      <div class="mock" aria-label="Product preview">
+        <div class="mock-bar">
+          <i></i><i></i><i></i>
+          <span class="badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6z"/></svg><span data-i18n="mock_badge">Offline mode</span></span>
+        </div>
+        <div class="mock-body">
+          <div class="bubble-q" data-i18n="mock_q1">What is the procedure when a customer says the food is unfit?</div>
+          <div class="bubble-a">
+            <span data-i18n="mock_a1">Apologize, replace or refund the item, and log the case within 24 hours.</span><span class="cite">1</span><span class="cite">2</span>
+            <div class="src" data-i18n="mock_src">Sources: SOP Customer Complaints p.3 · Refund Policy §2</div>
+          </div>
+          <div class="bubble-q" data-i18n="mock_q2">Which outlet sold the least in August?</div>
+          <div>
+            <div class="sql"><b>SELECT</b> o.name, <b>SUM</b>(oi.quantity * oi.unit_price) <b>AS</b> revenue
+<b>FROM</b> orders ... <b>GROUP BY</b> o.name <b>ORDER BY</b> revenue <b>LIMIT</b> 5</div>
+            <div class="sql-cap"><span>Read-only · LIMIT 1000</span><span class="mono">0.8s</span></div>
+          </div>
+          <div class="bars" role="img" aria-label="Bar chart: outlet revenue in August, Bandung lowest">
+            <div class="bar low"><span>Bandung</span><span class="t"><i style="width:48%"></i></span><span>-30%</span></div>
+            <div class="bar"><span>Surabaya</span><span class="t"><i style="width:78%"></i></span><span></span></div>
+            <div class="bar"><span>Jakarta</span><span class="t"><i style="width:96%"></i></span><span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem -->
+  <section class="alt" id="problem">
+    <div class="container split">
+      <div class="section-head" style="margin:0">
+        <p class="kicker" data-i18n="prob_kicker">The problem</p>
+        <h2 data-i18n="prob_h2">Your data is an asset sitting idle.</h2>
+        <p class="bridge" data-i18n="prob_bridge">Data only pays off when people can use it.</p>
+      </div>
+      <ul class="pain">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="prob_1">Knowledge is buried in documents nobody can search.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="prob_2">Answers sit in databases only analysts can query.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span data-i18n="prob_3">Insights arrive late, as manual reports.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Outcomes -->
+  <section id="outcomes">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker" data-i18n="out_kicker">From data to value</p>
+        <h2 data-i18n="out_h2">Four ways your data starts paying off.</h2>
+        <p class="sub" data-i18n="out_sub">Same data. More value.</p>
+      </div>
+      <div class="grid g2" id="how">
+        <article class="card stage"><span class="tag"><b>01</b><span data-i18n="s1_tag">Knowledge</span></span><h3 data-i18n="s1_h">Turn documents into answers</h3><p data-i18n="s1_p">SOPs and contracts become instant, cited answers.</p><ul class="mini"><li data-i18n="s1_b1">Upload PDF, DOCX, TXT, and Markdown</li><li data-i18n="s1_b2">Hybrid search with clickable citations</li><li data-i18n="s1_b3">Declines when the answer is not there</li></ul></article>
+        <article class="card stage"><span class="tag"><b>02</b><span data-i18n="s2_tag">Data</span></span><h3 data-i18n="s2_h">Turn databases into insight</h3><p data-i18n="s2_p">Ask in plain language. No SQL needed.</p><ul class="mini"><li data-i18n="s2_b1">Connect PostgreSQL in minutes</li><li data-i18n="s2_b2">Business terms mapped to metrics</li><li data-i18n="s2_b3">Chart, table, and the exact query shown</li></ul></article>
+        <article class="card stage"><span class="tag"><b>03</b><span data-i18n="s3_tag">Agents</span></span><h3 data-i18n="s3_h">Turn questions into reports</h3><p data-i18n="s3_p">A team of AI agents does the analysis.</p><ul class="mini"><li data-i18n="s3_b1">Planner, analyst, researcher, writer, reviewer</li><li data-i18n="s3_b2">Live view of every step and tool call</li><li data-i18n="s3_b3">Report linked to its queries and sources</li></ul></article>
+        <article class="card stage"><span class="tag"><b>04</b><span data-i18n="s4_tag">Automation</span></span><h3 data-i18n="s4_h">Turn insight into action</h3><p data-i18n="s4_p">Recurring work runs itself, under control.</p><ul class="mini"><li data-i18n="s4_b1">Schedule by cron, webhook, or manual run</li><li data-i18n="s4_b2">Approval Center for risky actions</li><li data-i18n="s4_b3">Run history, retries, and audit log</li></ul></article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Story -->
+  <section class="alt" id="story">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker" data-i18n="sty_kicker">See it in action</p>
+        <h2 data-i18n="sty_h2">From one question to a scheduled report.</h2>
+        <p class="sub" data-i18n="sty_sub">Demo with a fictional restaurant chain, Resto Noesantara.</p>
+      </div>
+      <ol class="steps"><li><h3 data-i18n="sty1_h">Ask the SOP</h3><p data-i18n="sty1_p">A cited answer in seconds.</p></li><li><h3 data-i18n="sty2_h">Ask the numbers</h3><p data-i18n="sty2_p">Query, chart, and explanation.</p></li><li><h3 data-i18n="sty3_h">Ask why</h3><p data-i18n="sty3_p">Agents combine sales, stock, contracts, and SOPs into one report.</p></li><li><h3 data-i18n="sty4_h">Automate it</h3><p data-i18n="sty4_p">Sent every month-end, after approval.</p></li></ol>
+    </div>
+  </section>
+
+  <!-- Privacy -->
+  <section class="band" id="privacy">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker" data-i18n="priv_kicker">Safe to unlock</p>
+        <h2 data-i18n="priv_h2">Unlock your data without exposing it.</h2>
+        <p class="sub" data-i18n="priv_sub">Your most valuable data is often your most sensitive. NAWA.AI runs on your servers, so you do not have to choose.</p>
+      </div>
+      <table>
+        <thead><tr><th data-i18n="priv_th1">Your concern</th><th data-i18n="priv_th2">NAWA.AI's answer</th></tr></thead>
+        <tbody>
+          <tr><td data-i18n="priv_c1">Documents cannot leave.</td><td data-i18n="priv_a1">Everything stays on your infrastructure.</td></tr>
+          <tr><td data-i18n="priv_c2">Regulation and confidentiality.</td><td data-i18n="priv_a2">Local AI by default. External providers only if an admin allows.</td></tr>
+          <tr><td data-i18n="priv_c3">No internet access.</td><td data-i18n="priv_a3">Offline mode blocks all outbound traffic.</td></tr>
+          <tr><td data-i18n="priv_c4">Vendor lock-in.</td><td data-i18n="priv_a4">Open source. No telemetry.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Control -->
+  <section id="control">
+    <div class="container split">
+      <div class="section-head" style="margin:0">
+        <p class="kicker" data-i18n="ctl_kicker">Trust</p>
+        <h2 data-i18n="ctl_h2">Value you can trust.</h2>
+        <p class="sub" data-i18n="ctl_sub">Insight is only useful if it is right. Quality is measured, failures included.</p>
+      </div>
+      <ul class="checks">
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="ctl_1"><strong>Always cited.</strong> Or it says nothing was found.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="ctl_2"><strong>Read-only data access.</strong> Dangerous queries are blocked.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="ctl_3"><strong>Human approval</strong> for emails, API calls, and writes.</span></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="ctl_4"><strong>Full audit log.</strong> Who asked what, and when.</span></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- Get started -->
+  <section class="alt" id="start">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker" data-i18n="st_kicker">How to get started</p>
+        <h2 data-i18n="st_h2">Start with one dataset.</h2>
+        <p class="sub" data-i18n="st_sub">Prove the value on one team, then expand.</p>
+      </div>
+      <ol class="steps">
+        <li><h3 data-i18n="st1_h">30-minute demo</h3><p data-i18n="st1_p">Sample data, then your own questions.</p></li>
+        <li><h3 data-i18n="st2_h">One-team pilot</h3><p data-i18n="st2_p">Load one team's documents and database.</p></li>
+        <li><h3 data-i18n="st3_h">Evaluate</h3><p data-i18n="st3_p">Measure the value against agreed indicators.</p></li>
+        <li><h3 data-i18n="st4_h">Expand</h3><p data-i18n="st4_p">Add teams, sources, and automations.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- IT -->
+  <section id="it">
+    <div class="container split">
+      <div class="section-head" style="margin:0">
+        <p class="kicker" data-i18n="it_kicker">For your IT team</p>
+        <h2 data-i18n="it_h2">Installed with one command.</h2>
+        <ul class="specs" style="margin-top:20px">
+          <li data-i18n="it_1">Docker Compose: on-premise, VPS, or private cloud.</li>
+          <li data-i18n="it_2">From 4 vCPU, 16 GB RAM, 50 GB disk. GPU recommended.</li>
+          <li data-i18n="it_3">Local models via Ollama or vLLM. All open source.</li>
+        </ul>
+      </div>
+      <pre class="code" aria-label="Install commands"><span class="c"># 1. get the code</span>
+git clone https://github.com/&lt;user&gt;/nawa-ai &amp;&amp; cd nawa-ai
+<span class="c"># 2. configure</span>
+cp .env.example .env
+<span class="c"># 3. start with a local LLM</span>
+docker compose --profile local-llm up -d</pre>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="container">
+      <div class="section-head">
+        <p class="kicker" data-i18n="faq_kicker">FAQ</p>
+        <h2 data-i18n="faq_h2">Common questions.</h2>
+      </div>
+      <div class="faq">
+        <details><summary data-i18n="q1">Is this a subscription service (SaaS)?</summary><p data-i18n="a1">No. You install and run it yourself.</p></details>
+        <details><summary data-i18n="q2">Is our data sent to an AI provider?</summary><p data-i18n="a2">Not by default. External providers need admin approval and are off in offline mode.</p></details>
+        <details><summary data-i18n="q3">What if the answer is not in our documents?</summary><p data-i18n="a3">It says it found nothing. It does not guess.</p></details>
+        <details><summary data-i18n="q4">Can the AI change or delete our data?</summary><p data-i18n="a4">No. Data access is read-only. Risky actions need approval.</p></details>
+        <details><summary data-i18n="q5">How accurate is it?</summary><p data-i18n="a5">Measured on a standard question set, failures published. Your own accuracy is set in the pilot.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Final CTA -->
+  <section id="contact" style="padding-top:0">
+    <div class="container">
+      <div class="final">
+        <h2 data-i18n="fin_h2">See what your data is worth.</h2>
+        <p data-i18n="fin_p">30-minute demo on your own documents. No commitment.</p>
+        <div class="cta-row">
+          <!-- TODO: replace with the real contact address or booking link -->
+          <a class="btn btn-primary" href="mailto:contact@example.com?subject=NAWA.AI%20demo" data-i18n="cta_demo_final">Book a demo</a>
+          <a class="btn" href="mailto:contact@example.com" data-i18n="cta_email">Contact us by email</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="container row">
+    <span><strong>NAWA.AI</strong> · <span data-i18n="foot_tag">From Business Knowledge to Intelligent Execution.</span></span>
+    <span data-i18n="foot_note">Self-hosted Enterprise Intelligence &amp; Automation Platform.</span>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var ID = {
+    s1_tag: "Pengetahuan",
+    s1_h: "Ubah dokumen jadi jawaban",
+    s1_p: "SOP dan kontrak jadi jawaban instan berkutipan.",
+    s1_b1: "Unggah PDF, DOCX, TXT, dan Markdown",
+    s1_b2: "Pencarian hybrid dengan kutipan yang bisa diklik",
+    s1_b3: "Menolak menjawab jika informasinya tidak ada",
+    s2_tag: "Data",
+    s2_h: "Ubah database jadi insight",
+    s2_p: "Tanya dengan bahasa biasa. Tanpa SQL.",
+    s2_b1: "Hubungkan PostgreSQL dalam hitungan menit",
+    s2_b2: "Istilah bisnis dipetakan ke metrik",
+    s2_b3: "Grafik, tabel, dan query yang dipakai ditampilkan",
+    s3_tag: "Agent",
+    s3_h: "Ubah pertanyaan jadi laporan",
+    s3_p: "Tim AI agent mengerjakan analisisnya.",
+    s3_b1: "Planner, analis, peneliti, penulis, reviewer",
+    s3_b2: "Tampilan langsung setiap langkah dan pemanggilan tool",
+    s3_b3: "Laporan terhubung ke query dan sumbernya",
+    s4_tag: "Otomasi",
+    s4_h: "Ubah insight jadi tindakan",
+    s4_p: "Pekerjaan berulang jalan sendiri, tetap terkendali.",
+    s4_b1: "Jadwalkan lewat cron, webhook, atau manual",
+    s4_b2: "Approval Center untuk tindakan berisiko",
+    s4_b3: "Riwayat eksekusi, retry, dan audit log",
+    sty_kicker: "Lihat cara kerjanya",
+    sty_h2: "Dari satu pertanyaan ke laporan terjadwal.",
+    sty_sub: "Demo dengan jaringan restoran fiktif, Resto Noesantara.",
+    sty1_h: "Tanya SOP",
+    sty1_p: "Jawaban berkutipan dalam detik.",
+    sty2_h: "Tanya angkanya",
+    sty2_p: "Query, grafik, dan penjelasan.",
+    sty3_h: "Tanya kenapa",
+    sty3_p: "Agent menggabungkan penjualan, stok, kontrak, dan SOP jadi satu laporan.",
+    sty4_h: "Otomatiskan",
+    sty4_p: "Terkirim setiap akhir bulan, setelah disetujui.",
+    nav_outcomes: "Hasil", nav_privacy: "Privasi", nav_control: "Kendali", nav_start: "Mulai", nav_faq: "FAQ",
+    cta_demo_short: "Jadwalkan demo",
+    hero_eyebrow: "Ubah data perusahaan jadi nilai perusahaan",
+    hero_h1_a: "Jawabannya sudah ada di data Anda.",
+    hero_h1_b: "Sekarang bisa dijangkau.",
+    hero_lead: "NAWA.AI mengubah dokumen dan database Anda menjadi jawaban berkutipan, insight, dan laporan. Berjalan di server Anda sendiri, jadi data tidak pernah keluar.",
+    cta_demo: "Jadwalkan demo", cta_see: "Lihat cara kerjanya",
+    trust_1: "Insight dalam detik", trust_2: "Setiap jawaban bersumber", trust_3: "Data tetap milik Anda",
+    mock_badge: "Mode offline",
+    mock_q1: "Apa prosedur jika pelanggan komplain makanannya tidak layak?",
+    mock_a1: "Minta maaf, ganti atau kembalikan dana, lalu catat kasus dalam 24 jam.",
+    mock_src: "Sumber: SOP Komplain Pelanggan hlm. 3 · Kebijakan Refund §2",
+    mock_q2: "Outlet mana dengan penjualan terendah bulan Agustus?",
+    prob_kicker: "Masalahnya",
+    prob_h2: "Data Anda adalah aset yang menganggur.",
+    prob_bridge: "Data baru bernilai saat orang bisa memakainya.",
+    prob_1: "Pengetahuan terkubur di dokumen yang sulit dicari.",
+    prob_2: "Jawaban ada di database yang hanya bisa diakses analis.",
+    prob_3: "Insight datang terlambat, lewat laporan manual.",
+    prob_4: "Tim memakai AI di luar pengawasan, dan dokumen perusahaan ikut terkirim ke pihak ketiga.",
+    out_kicker: "Dari data ke nilai",
+    out_h2: "Empat cara data Anda mulai bernilai.",
+    out_sub: "Data yang sama. Nilai lebih besar.",
+    o1_h: "Ubah dokumen jadi jawaban",
+    o1_p: "SOP dan kontrak jadi jawaban instan berkutipan. Jika tidak ada, ia bilang tidak ada.",
+    o1_ex: "Contoh: \"Bagaimana jika pelanggan bilang makanannya tidak layak?\"",
+    o2_h: "Ubah database jadi insight",
+    o2_p: "Tanya dengan bahasa biasa. Dapat angka, grafik, dan query yang dipakai.",
+    o2_ex: "Contoh: \"Outlet mana paling rendah di Agustus?\"",
+    o3_h: "Ubah pertanyaan jadi laporan",
+    o3_p: "AI agent menggabungkan data dan dokumen jadi laporan dengan rekomendasi. Setiap langkah bisa ditelusuri.",
+    o3_ex: "Contoh: \"Kenapa penjualan Bandung turun?\"",
+    o4_h: "Ubah insight jadi tindakan",
+    o4_p: "Jadwalkan laporan dan peringatan. Tindakan berisiko menunggu persetujuan.",
+    o4_ex: "Contoh: \"Kirim laporan ini setiap akhir bulan.\"",
+    priv_kicker: "Aman untuk dimanfaatkan",
+    priv_h2: "Manfaatkan data tanpa membukanya ke luar.",
+    priv_sub: "Data paling berharga sering kali paling sensitif. NAWA.AI berjalan di server Anda, jadi Anda tak perlu memilih.",
+    priv_th1: "Kekhawatiran Anda", priv_th2: "Jawaban NAWA.AI",
+    priv_c1: "Dokumen tidak boleh keluar.", priv_a1: "Semua tetap di infrastruktur Anda.",
+    priv_c2: "Regulasi dan kerahasiaan.", priv_a2: "AI lokal secara default. Penyedia eksternal hanya jika admin mengizinkan.",
+    priv_c3: "Tanpa akses internet.", priv_a3: "Mode offline memblokir semua koneksi keluar.",
+    priv_c4: "Ketergantungan vendor.", priv_a4: "Open source. Tanpa telemetry.",
+    priv_c5: "\"Siapa yang boleh melihat apa?\"", priv_a5: "Akses per peran dan per tim. Tim A tidak bisa membaca data tim B.",
+    ctl_kicker: "Kepercayaan",
+    ctl_h2: "Nilai yang bisa dipercaya.",
+    ctl_sub: "Insight hanya berguna jika benar. Kualitas diukur, termasuk yang gagal.",
+    ctl_1: "<strong>Selalu ada sumber.</strong> Atau dinyatakan tidak ditemukan.",
+    ctl_2: "<strong>Akses data hanya baca.</strong> Query berbahaya diblokir.",
+    ctl_3: "<strong>Persetujuan manusia</strong> untuk email, panggilan API, dan penulisan data.",
+    ctl_4: "<strong>Audit log lengkap.</strong> Siapa bertanya apa, dan kapan.",
+    ctl_5: "<strong>Dokumen adalah data, bukan perintah.</strong> Instruksi tersembunyi di dalam file tidak bisa mengambil alih asisten.",
+    st_kicker: "Cara memulai",
+    st_h2: "Mulai dari satu dataset.",
+    st_sub: "Buktikan nilainya di satu tim, lalu perluas.",
+    st1_h: "Demo 30 menit", st1_p: "Data contoh, lalu pertanyaan Anda sendiri.",
+    st2_h: "Pilot satu tim", st2_p: "Muat dokumen dan database satu tim.",
+    st3_h: "Evaluasi", st3_p: "Ukur nilainya dengan indikator yang disepakati.",
+    st4_h: "Perluas", st4_p: "Tambah tim, sumber data, dan otomasi.",
+    role_kicker: "Untuk setiap peran", role_h2: "Semua orang mendapat yang dibutuhkan.",
+    r1_h: "Pemilik dan direktur", r1_p: "Memahami performa bisnis tanpa menunggu laporan.",
+    r2_h: "Manajer operasional", r2_p: "Menemukan SOP dan kebijakan yang tepat dalam hitungan detik.",
+    r3_h: "Analis bisnis", r3_p: "Laporan lengkap dengan sumber dari satu instruksi.",
+    r4_h: "IT dan keamanan", r4_p: "Kendali atas akses, audit log, mode offline, dan penyedia AI.",
+    r5_h: "Compliance dan legal", r5_p: "Data tetap di dalam perusahaan dan setiap tindakan tercatat.",
+    it_kicker: "Untuk tim IT", it_h2: "Dipasang dengan satu perintah.",
+    it_1: "Docker Compose: on-premise, VPS, atau private cloud.",
+    it_2: "Mulai 4 vCPU, 16 GB RAM, 50 GB disk. GPU disarankan.",
+    it_3: "Model lokal via Ollama atau vLLM. Semua open source.",
+    it_4: "FastAPI, Next.js, PostgreSQL + pgvector, Redis, LangGraph, Langfuse. Semua open source.",
+    it_5: "Backup, restore, dan upgrade dengan migrasi otomatis.",
+    faq_kicker: "FAQ", faq_h2: "Pertanyaan umum.",
+    q1: "Apakah ini layanan langganan (SaaS)?", a1: "Bukan. Anda pasang dan jalankan sendiri.",
+    q2: "Apakah data kami dikirim ke penyedia AI?", a2: "Tidak secara default. Penyedia eksternal perlu izin admin dan mati di mode offline.",
+    q3: "Bagaimana jika jawabannya tidak ada di dokumen kami?", a3: "Ia menyatakan tidak menemukan. Tidak menebak.",
+    q4: "Bisakah AI mengubah atau menghapus data kami?", a4: "Tidak. Akses data hanya baca. Tindakan berisiko perlu persetujuan.",
+    q5: "Seberapa akurat?", a5: "Diukur dengan soal baku, kegagalan dipublikasikan. Akurasi pada data Anda ditetapkan saat pilot.",
+    q6: "Butuh GPU?", a6: "GPU disarankan agar nyaman dipakai tim. Untuk skala kecil, server tanpa GPU dengan model kecil atau penyedia eksternal opsional tetap bisa.",
+    q7: "Bisa berjalan tanpa internet?", a7: "Bisa, dengan model yang diunduh sebelumnya.",
+    q8: "Terhubung ke apa saja?", a8: "Saat ini: PostgreSQL, dokumen PDF, DOCX, TXT, dan Markdown, email lewat SMTP, dan webhook. Integrasi lain dibahas sesuai kebutuhan.",
+    fin_h2: "Lihat nilai data Anda.",
+    fin_p: "Demo 30 menit dengan dokumen Anda sendiri. Tanpa komitmen.",
+    cta_demo_final: "Jadwalkan demo", cta_email: "Hubungi kami lewat email",
+    foot_tag: "From Business Knowledge to Intelligent Execution.",
+    foot_note: "Platform Enterprise Intelligence & Automation self-hosted."
+  };
+  var META_ID = {
+    title: "NAWA.AI — Buat data perusahaan lebih berharga",
+    desc: "Ubah dokumen dan database perusahaan jadi jawaban, insight, dan laporan. Self-hosted, jadi data Anda tidak keluar."
+  };
+
+  var nodes = document.querySelectorAll("[data-i18n]");
+  var EN = {};
+  nodes.forEach(function (n) { EN[n.getAttribute("data-i18n")] = n.innerHTML; });
+  var metaDesc = document.querySelector('meta[name="description"]');
+  var META_EN = { title: document.title, desc: metaDesc.getAttribute("content") };
+
+  function setLang(lang) {
+    var dict = lang === "id" ? ID : EN;
+    nodes.forEach(function (n) {
+      var k = n.getAttribute("data-i18n");
+      if (dict[k] !== undefined) n.innerHTML = dict[k];
+    });
+    var m = lang === "id" ? META_ID : META_EN;
+    document.title = m.title; metaDesc.setAttribute("content", m.desc);
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-lang]").forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.getAttribute("data-lang") === lang));
+    });
+    var tt = document.getElementById("theme-toggle");
+    var dark = document.documentElement.getAttribute("data-theme") === "dark";
+    tt.setAttribute("aria-label", lang === "id" ? (dark ? "Ganti ke tema terang" : "Ganti ke tema gelap") : (dark ? "Switch to light theme" : "Switch to dark theme"));
+    try { localStorage.setItem("nawa-lang", lang); } catch (e) {}
+  }
+
+  function setTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    try { localStorage.setItem("nawa-theme", t); } catch (e) {}
+    setLang(document.documentElement.lang === "id" ? "id" : "en");
+  }
+
+  document.querySelectorAll("[data-lang]").forEach(function (b) {
+    b.addEventListener("click", function () { setLang(b.getAttribute("data-lang")); });
+  });
+  document.getElementById("theme-toggle").addEventListener("click", function () {
+    setTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+
+  var saved = null;
+  try { saved = localStorage.getItem("nawa-lang"); } catch (e) {}
+  if (!saved && /^id\b/i.test(navigator.language || "")) saved = "id";
+  setLang(saved === "id" ? "id" : "en");
+})();
+</script>
+</body>
+</html>

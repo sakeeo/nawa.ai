@@ -16,6 +16,12 @@ dependencies = [
   "litellm>=1.108.1",
   "pyyaml>=6.0.3",
   "langfuse>=4.7,<5",
+  "pgvector>=0.5.1",
+  "pypdf>=7.0.0",
+  "python-docx>=1.2.0",
+  "filetype>=1.2.0",
+  "arq>=0.28.0",
+  "python-multipart>=0.0.33",
 ]
 
 [dependency-groups]
@@ -79,6 +85,17 @@ modules = [
   "nawa.automation",
   "nawa.evaluation",
 ]
+# Role checks (ViewerCtx, ManagerCtx) live in nawa.workspace.deps; duplicating them would fork RBAC.
+# instance_settings (setup state, AI provider) is owned by workspace; chat reads it read-only.
+ignore_imports = [
+  "nawa.knowledge.api -> nawa.workspace.deps",
+  "nawa.knowledge.api -> nawa.workspace.repository",
+  # The evaluation drives the real pipeline through public entry points only (ADR in T1-15).
+  "nawa.evaluation.runner -> nawa.knowledge.answer",
+  "nawa.evaluation.runner -> nawa.knowledge.corpus",
+  "nawa.evaluation.runner -> nawa.knowledge.rerank",
+]
+
 
 [[tool.importlinter.contracts]]
 name = "Core does not import business modules"

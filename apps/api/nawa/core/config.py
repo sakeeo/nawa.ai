@@ -32,6 +32,23 @@ class Settings(BaseSettings):
     ollama_api_base: str = "http://ollama:11434"
     embedding_model: str = "ollama/bge-m3"
 
+    upload_dir: str = "/data/uploads"
+    max_upload_bytes: int = 20 * 1024 * 1024
+    max_pdf_pages: int = 200
+
+    rag_vector_k: int = 30
+    rag_keyword_k: int = 30
+    rag_rrf_k: int = 60
+    rag_final_k: int = 20
+    rag_rerank_top_n: int = 20
+    rag_context_k: int = 5
+    rag_min_similarity: float = 0.60
+    rag_context_max_tokens: int = 3000
+    chat_limit_per_minute: int = 20
+    reranker_enabled: bool = False
+    reranker_url: str = ""
+    reranker_timeout_seconds: float = 10.0
+
     langfuse_host: str = ""
     langfuse_public_key: str = ""
     langfuse_secret_key: SecretStr | None = None

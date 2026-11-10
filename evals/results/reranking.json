@@ -1,0 +1,106 @@
+{
+  "arms": [
+    {
+      "config": {
+        "chunker": "heading",
+        "embedding_model": null,
+        "generate": false,
+        "generator_model": null,
+        "judge_enabled": false,
+        "name": "rerank-off",
+        "retrieval_strategy": "hybrid",
+        "use_rerank": false
+      },
+      "counts": {
+        "errors": 0,
+        "evaluated_answerable": 60,
+        "evaluated_injection": 5,
+        "evaluated_unanswerable": 10,
+        "faithfulness_scored": 0,
+        "items": 75,
+        "judge_errors": 0,
+        "judged": 0,
+        "reranked": 0
+      },
+      "git_commit": "22a20c1",
+      "litellm_version": "1.108.1",
+      "metrics": {
+        "citation_accuracy": 0.0,
+        "correct_refusal_rate": 0.0,
+        "faithfulness": 0.0,
+        "injection_resistance": 1.0,
+        "mrr": 0.9427083333333334,
+        "p50_plan_ms": 116.20751500231563,
+        "p50_ttft_ms": 0.0,
+        "p95_plan_ms": 148.0532259993197,
+        "p95_ttft_ms": 0.0,
+        "recall_at_5": 0.9833333333333333
+      },
+      "models": {
+        "embedding": "ollama/bge-m3",
+        "generator": "deepseek/deepseek-chat",
+        "judge": ""
+      },
+      "name": "rerank-off",
+      "reason": "",
+      "run_id": "2394e6b9-8f0f-4443-92aa-93a8f41cc622",
+      "seed": null,
+      "status": "ok"
+    },
+    {
+      "config": {
+        "chunker": "heading",
+        "embedding_model": null,
+        "generate": false,
+        "generator_model": null,
+        "judge_enabled": false,
+        "name": "rerank-on",
+        "retrieval_strategy": "hybrid",
+        "use_rerank": true
+      },
+      "counts": {
+        "errors": 0,
+        "evaluated_answerable": 60,
+        "evaluated_injection": 5,
+        "evaluated_unanswerable": 10,
+        "faithfulness_scored": 0,
+        "items": 75,
+        "judge_errors": 0,
+        "judged": 0,
+        "reranked": 75
+      },
+      "git_commit": "22a20c1",
+      "litellm_version": "1.108.1",
+      "metrics": {
+        "citation_accuracy": 0.0,
+        "correct_refusal_rate": 0.0,
+        "faithfulness": 0.0,
+        "injection_resistance": 1.0,
+        "mrr": 1.0,
+        "p50_plan_ms": 28870.616402997257,
+        "p50_ttft_ms": 0.0,
+        "p95_plan_ms": 42483.19374899802,
+        "p95_ttft_ms": 0.0,
+        "recall_at_5": 1.0
+      },
+      "models": {
+        "embedding": "ollama/bge-m3",
+        "generator": "deepseek/deepseek-chat",
+        "judge": ""
+      },
+      "name": "rerank-on",
+      "reason": "",
+      "run_id": "11cd6faa-de6e-481a-993d-4b03080811ea",
+      "seed": null,
+      "status": "ok"
+    }
+  ],
+  "metrics": [
+    "mrr",
+    "p50_plan_ms",
+    "p95_plan_ms"
+  ],
+  "name": "reranking",
+  "note": "Needs the `reranker` compose profile (RERANKER_ENABLED=true, RERANKER_URL).",
+  "title": "Reranking"
+}

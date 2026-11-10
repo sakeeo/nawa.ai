@@ -13,7 +13,9 @@ COPY nawa ./nawa
 COPY --from=seed . ./seed
 RUN uv sync --frozen --no-dev
 
-RUN useradd --system --create-home nawa
+RUN useradd --system --create-home nawa \
+    && mkdir -p /data/uploads \
+    && chown nawa /data/uploads
 USER nawa
 ENV PATH="/app/.venv/bin:$PATH" PYTHONPATH=/app/seed
 EXPOSE 8000
