@@ -135,7 +135,7 @@ runs a cross-encoder; on CPU it takes about 2 s per passage, so it is off by def
 Data analyst settings (Phase 2): `DATA_ENCRYPTION_KEY` (Fernet key that encrypts data source passwords; without it
 creating a data source returns 503), `DEMO_DB_READONLY_USER` / `DEMO_DB_READONLY_PASSWORD` (a SELECT-only role that
 `make seed` creates in the demo database; skipped when the password is empty), and the tuning values
-`DATA_QUERY_TIMEOUT_S`, `DATA_MAX_ROWS`, `DATA_LINK_TOP_TABLES`.
+`DATA_QUERY_TIMEOUT_S`, `DATA_MAX_ROWS`, `DATA_LINK_TOP_TABLES`, `DATA_ASK_LIMIT_PER_MINUTE`.
 
 Python uses `uv`; the frontend uses `pnpm`. Tests never call a real LLM; they use a fake client.
 

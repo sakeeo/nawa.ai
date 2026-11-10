@@ -74,10 +74,13 @@ async def discover_schema(
     *,
     schema: str = "public",
     exclude: set[tuple[str, str]] | frozenset[tuple[str, str]] = frozenset(),
+    sample_allow: dict[str, set[str]] | None = None,
 ) -> list[TableInfo]:
     """Read tables, columns, keys and enum-like sample values (decision P12).
 
     `exclude` holds (table, column) pairs that must never be sampled (sensitive or omitted).
+    `sample_allow`, when given, limits sampling to the listed columns of the listed tables: `{}`
+    means no sampling at all. The table list itself is always complete.
     """
     params = {"schema": schema}
     async with engine.connect() as conn:
@@ -89,6 +92,8 @@ async def discover_schema(
         samples: dict[tuple[str, str], list[str]] = {}
         for table, column, type_name, _nullable in column_rows:
             if (table, column) in exclude or not _is_text_type(type_name):
+                continue
+            if sample_allow is not None and column not in sample_allow.get(table, set()):
                 continue
             col, tbl = quote(column), f"{quote(schema)}.{quote(table)}"
             # Identifiers are quoted by the dialect; the limit is a module constant.

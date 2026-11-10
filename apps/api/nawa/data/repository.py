@@ -1,12 +1,13 @@
 import uuid
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nawa.core.crypto import CredentialVault
 from nawa.data.connector import ConnectionParams
 from nawa.data.discovery import TableInfo, snapshot_from_json, snapshot_to_json
 from nawa.data.models import DataSource, QueryLog, SchemaSnapshot
+from nawa.data.models import SemanticModel as SemanticModelRow
 
 
 async def create_source(
@@ -189,3 +190,81 @@ async def list_queries(
         statement.order_by(QueryLog.created_at.desc(), QueryLog.id.desc()).limit(limit)
     )
     return list(result.scalars())
+
+
+async def get_active_model(
+    session: AsyncSession, workspace_id: uuid.UUID, source_id: uuid.UUID
+) -> SemanticModelRow | None:
+    result = await session.execute(
+        select(SemanticModelRow).where(
+            SemanticModelRow.workspace_id == workspace_id,
+            SemanticModelRow.data_source_id == source_id,
+            SemanticModelRow.is_active.is_(True),
+        )
+    )
+    return result.scalar_one_or_none()
+
+
+async def save_semantic_model(
+    session: AsyncSession,
+    *,
+    workspace_id: uuid.UUID,
+    source_id: uuid.UUID,
+    yaml_text: str,
+    created_by: uuid.UUID | None,
+) -> SemanticModelRow:
+    """Store a new version and make it the only active one. Serialized per data source."""
+    await session.execute(
+        text("SELECT pg_advisory_xact_lock(hashtextextended(:key, 0))"),
+        {"key": f"semantic:{source_id}"},
+    )
+    latest = (
+        await session.execute(
+            select(SemanticModelRow.version)
+            .where(
+                SemanticModelRow.workspace_id == workspace_id,
+                SemanticModelRow.data_source_id == source_id,
+            )
+            .order_by(SemanticModelRow.version.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    await session.execute(
+        update(SemanticModelRow)
+        .where(
+            SemanticModelRow.workspace_id == workspace_id,
+            SemanticModelRow.data_source_id == source_id,
+            SemanticModelRow.is_active.is_(True),
+        )
+        .values(is_active=False)
+    )
+    row = SemanticModelRow(
+        workspace_id=workspace_id,
+        data_source_id=source_id,
+        version=(latest or 0) + 1,
+        yaml=yaml_text,
+        is_active=True,
+        created_by=created_by,
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
+async def get_query(
+    session: AsyncSession, workspace_id: uuid.UUID, query_id: uuid.UUID
+) -> QueryLog | None:
+    result = await session.execute(
+        select(QueryLog).where(QueryLog.id == query_id, QueryLog.workspace_id == workspace_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def set_query_feedback(
+    session: AsyncSession, workspace_id: uuid.UUID, query_id: uuid.UUID, value: int
+) -> None:
+    await session.execute(
+        update(QueryLog)
+        .where(QueryLog.id == query_id, QueryLog.workspace_id == workspace_id)
+        .values(feedback=value)
+    )

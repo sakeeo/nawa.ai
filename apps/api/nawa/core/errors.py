@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -14,9 +15,10 @@ class DomainError(Exception):
     code = "domain_error"
     title = "Bad Request"
 
-    def __init__(self, detail: str) -> None:
+    def __init__(self, detail: str, *, extra: dict[str, Any] | None = None) -> None:
         super().__init__(detail)
         self.detail = detail
+        self.extra = extra or {}
 
 
 class NotFoundError(DomainError):
@@ -74,12 +76,18 @@ class RateLimitedError(DomainError):
 
 
 def _problem(
-    status: int, title: str, code: str, detail: str, request_id: str | None = None
+    status: int,
+    title: str,
+    code: str,
+    detail: str,
+    request_id: str | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> JSONResponse:
     return JSONResponse(
         status_code=status,
         media_type="application/problem+json",
         content={
+            **(extra or {}),  # extra fields first: they can never override the standard ones
             "type": f"about:blank#{code}",
             "title": title,
             "status": status,
@@ -93,7 +101,7 @@ def _problem(
 def install_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def handle_domain_error(_: Request, exc: DomainError) -> JSONResponse:
-        return _problem(exc.status_code, exc.title, exc.code, exc.detail)
+        return _problem(exc.status_code, exc.title, exc.code, exc.detail, extra=exc.extra)
 
     @app.exception_handler(Exception)
     async def handle_unexpected(request: Request, exc: Exception) -> JSONResponse:

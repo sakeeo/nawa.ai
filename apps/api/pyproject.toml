@@ -92,6 +92,9 @@ modules = [
 ignore_imports = [
   "nawa.knowledge.api -> nawa.workspace.deps",
   "nawa.knowledge.api -> nawa.workspace.repository",
+  # The data API checks roles and reads the instance AI provider, as the knowledge API does.
+  "nawa.data.api -> nawa.workspace.deps",
+  "nawa.data.api -> nawa.workspace.repository",
   # The evaluation drives the real pipeline through public entry points only (ADR in T1-15).
   "nawa.evaluation.runner -> nawa.knowledge.answer",
   "nawa.evaluation.runner -> nawa.knowledge.corpus",

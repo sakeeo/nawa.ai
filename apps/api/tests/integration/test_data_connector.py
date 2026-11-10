@@ -119,3 +119,17 @@ async def test_snapshot_json_round_trips(target_database: TargetDb) -> None:
 async def test_unknown_schema_gives_no_tables(target_database: TargetDb, schema: str) -> None:
     async with open_engine(_params(target_database, "readonly")) as engine:
         assert await discover_schema(engine, schema=schema) == []
+
+
+async def test_samples_are_taken_only_where_the_allowlist_permits(
+    target_database: TargetDb,
+) -> None:
+    async with open_engine(_params(target_database, "readonly")) as engine:
+        tables = await discover_schema(engine, sample_allow={"outlets": {"id", "name"}})
+        nothing = await discover_schema(engine, sample_allow={})
+    by_table = {t.name: {c.name: c for c in t.columns} for t in tables}
+    assert by_table["outlets"]["name"].samples == ["Bandung", "Jakarta", "Medan"]
+    assert by_table["outlets"]["city"].samples == []  # column not allowed
+    assert by_table["orders"]["channel"].samples == []  # table not allowed
+    assert {t.name for t in tables} == {"outlets", "orders"}  # the table list itself is complete
+    assert all(not c.samples for t in nothing for c in t.columns)

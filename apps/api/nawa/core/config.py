@@ -53,6 +53,7 @@ class Settings(BaseSettings):
     data_query_timeout_s: int = 10
     data_max_rows: int = 1000
     data_link_top_tables: int = 4
+    data_ask_limit_per_minute: int = 20
     demo_db_readonly_user: str = "nawa_demo_ro"
     demo_db_readonly_password: str | None = None
 

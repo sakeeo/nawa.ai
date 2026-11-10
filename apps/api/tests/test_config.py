@@ -62,6 +62,7 @@ def test_data_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.data_link_top_tables == 4
     assert settings.demo_db_readonly_user == "nawa_demo_ro"
     assert settings.demo_db_readonly_password is None
+    assert settings.data_ask_limit_per_minute == 20
 
 
 def test_knowledge_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
