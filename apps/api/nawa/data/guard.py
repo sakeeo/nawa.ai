@@ -96,6 +96,20 @@ _FORBIDDEN_NODES: tuple[type[exp.Expr], ...] = tuple(
     getattr(exp, name) for name in _FORBIDDEN_NODE_NAMES if hasattr(exp, name)
 )
 
+# Words that start a real PostgreSQL command. sqlglot reads a statement it does not know as a
+# generic `Command`; a first word outside this list is a typo the model can fix, while every word
+# in it is refused for good. Either way nothing runs without a SELECT.
+KNOWN_COMMANDS = frozenset(
+    {
+        "ABORT", "ALTER", "ANALYZE", "BEGIN", "CALL", "CHECKPOINT", "CLOSE", "CLUSTER", "COMMENT",
+        "COMMIT", "COPY", "CREATE", "DEALLOCATE", "DECLARE", "DELETE", "DISCARD", "DO", "DROP",
+        "END", "EXECUTE", "EXPLAIN", "FETCH", "GRANT", "IMPORT", "INSERT", "LISTEN", "LOAD",
+        "LOCK", "MERGE", "MOVE", "NOTIFY", "PREPARE", "REASSIGN", "REFRESH", "REINDEX", "RELEASE",
+        "RESET", "REVOKE", "ROLLBACK", "SAVEPOINT", "SECURITY", "SET", "SHOW", "START",
+        "TRUNCATE", "UNLISTEN", "UPDATE", "VACUUM",
+    }
+)  # fmt: skip
+
 _STRING_LITERAL = re.compile(r"'(?:[^']|'')*'")
 _CALL = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 _QUALIFIED_CALL = re.compile(r"[A-Za-z0-9_\"]\s*\.\s*\"?[A-Za-z_][A-Za-z0-9_]*\"?\s*\(")
@@ -115,6 +129,11 @@ class GuardResult:
     kind: Kind
     reason: str | None
     tables: frozenset[str]
+
+
+def _first_word(sql: str) -> str:
+    match = re.match(r"\s*([A-Za-z_]+)", sql)
+    return match.group(1).upper() if match else ""
 
 
 def _fail(kind: Kind, reason: str, tables: frozenset[str] = frozenset()) -> GuardResult:
@@ -230,6 +249,17 @@ def check_sql(sql: str, allow: dict[str, set[str]], *, max_rows: int = 1000) -> 
         return _fail("forbidden", "Only one statement is allowed")
 
     root = statements[0].unnest()
+    if isinstance(root, exp.Command) and str(root.this).upper() not in KNOWN_COMMANDS:
+        return _fail("repairable", "Syntax error: unknown statement")
+    if (
+        isinstance(root, exp.Alias | exp.Condition)
+        and not isinstance(root, exp.Query)
+        and _first_word(sql) not in KNOWN_COMMANDS
+    ):
+        # A bare expression such as `SELEC broken` (read as `SELEC AS broken`): not a statement
+        # at all, so it cannot be an attack, and the model can fix the typo. A real command that
+        # sqlglot happens to read the same way (`LISTEN channel`) is still refused.
+        return _fail("repairable", "Syntax error: the text is not a SELECT statement")
     if not isinstance(root, exp.Query) or root.find(*_FORBIDDEN_NODES):
         return _fail("forbidden", "Only a single read-only SELECT query is allowed")
 

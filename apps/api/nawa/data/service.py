@@ -27,7 +27,7 @@ from nawa.data.executor import (
     execute_readonly,
 )
 from nawa.data.guard import check_sql, mark_checked
-from nawa.data.linking import build_link_index, link_schema
+from nawa.data.linking import LinkedSchema, build_link_index, link_schema
 from nawa.data.semantic import SemanticModel, allowlist
 from nawa.data.sql_gen import (
     SqlGenerationError,
@@ -67,6 +67,7 @@ class AskContext:
     settings: Settings
     fewshot: list[tuple[str, str]] = field(default_factory=list)
     max_retries: int = MAX_RETRIES
+    schema_linking: bool = True  # False sends every table, metric and dimension (ablation)
 
 
 @dataclass(frozen=True)
@@ -176,10 +177,19 @@ async def ask_question(ctx: AskContext, question: str) -> AskOutcome:
     settings = ctx.settings
     allow = allowlist(ctx.model)
     today = await _resolve_today(ctx, allow)
-    index = await build_link_index(ctx.gateway, ctx.model, ctx.model_key)
-    linked = await link_schema(
-        index, ctx.gateway, cleaned, ctx.schema, top_tables=settings.data_link_top_tables
-    )
+    if ctx.schema_linking:
+        index = await build_link_index(ctx.gateway, ctx.model, ctx.model_key)
+        linked = await link_schema(
+            index, ctx.gateway, cleaned, ctx.schema, top_tables=settings.data_link_top_tables
+        )
+    else:
+        known = {t.name for t in ctx.schema}
+        linked = LinkedSchema(
+            tables=[t.name for t in ctx.model.tables if t.name in known],
+            metrics=[m.name for m in ctx.model.metrics],
+            dimensions=[d.name for d in ctx.model.dimensions],
+            scores={},
+        )
     base = build_messages(
         ctx.registry,
         question=cleaned,

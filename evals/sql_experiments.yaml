@@ -1,0 +1,15 @@
+# Arms of the Text-to-SQL evaluation (`make eval-sql-experiments`). Every arm runs the same
+# 50 + 10 golden questions through the production pipeline against the demo database.
+# `baseline` is the full pipeline and the arm the report's targets table is built from.
+# Arms with `requires_env` are skipped (with the reason recorded) when the variable is missing.
+baseline: baseline
+arms:
+  - group: ablation
+    config: {name: baseline}
+  - group: ablation
+    config: {name: no-linking, schema_linking: false}
+  - group: ablation
+    config: {name: no-correction, self_correction: false}
+  - group: generator
+    config: {name: gen-local, generator_model: "ollama/qwen2.5:7b"}
+    requires_env: [OLLAMA_API_BASE]

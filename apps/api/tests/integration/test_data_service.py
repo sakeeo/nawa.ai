@@ -350,3 +350,35 @@ async def test_an_unavailable_model_is_not_swallowed(
     ) as env:
         with pytest.raises(LLMUnavailableError):
             await env.ask("omzet per outlet")
+
+
+def _wide_model() -> SemanticModel:
+    """The two real tables plus six dummy ones, so schema linking has something to drop."""
+    dummy = "".join(f"  extra{i}:\n    columns: [id]\n" for i in range(1, 7))
+    return parse_semantic_yaml(SEMANTIC.replace("metrics:", dummy + "metrics:", 1))
+
+
+async def test_schema_linking_can_be_switched_off_to_send_every_table(
+    app_engine: AsyncEngine, owner_engine: AsyncEngine, target_database: TargetDb
+) -> None:
+    from nawa.data.discovery import ColumnInfo, TableInfo
+
+    async with make_env(
+        app_engine,
+        owner_engine,
+        target_database,
+        [reply(GOOD_SQL), reply(GOOD_SQL)],
+        model=_wide_model(),
+    ) as env:
+        extra = [
+            TableInfo(f"extra{i}", [ColumnInfo("id", "integer", False)], [], [], 1)
+            for i in range(1, 7)
+        ]
+        env.ctx.schema = [*env.ctx.schema, *extra]
+        await env.ask("omzet per outlet")
+        env.ctx.schema_linking = False
+        await env.ask("omzet per outlet")
+    linked, everything = (str(c["messages"][0]["content"]) for c in env.client.completions)
+    assert "extra6" not in linked
+    assert all(f"- extra{i} " in everything for i in range(1, 7))
+    assert "revenue" in everything  # every metric is offered too
