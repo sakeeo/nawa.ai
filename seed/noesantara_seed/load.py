@@ -107,3 +107,69 @@ async def ensure_database(admin_url: str, name: str) -> None:
             await conn.execute(f'CREATE DATABASE "{name}"')
     finally:
         await conn.close()
+
+
+_ROLE_NAME = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
+
+
+def validate_role_name(name: str) -> str:
+    if not _ROLE_NAME.match(name):
+        raise ValueError(f"Invalid role name: {name!r}")
+    return name
+
+
+async def ensure_readonly_role(url: str, role: str, password: str) -> None:
+    """Create or refresh a SELECT-only login role on the database `url` points at.
+
+    Run it after every `load_async`: reloading drops the tables and with them the grants.
+    Needs owner rights. The password is bound through `format(%L)`, never concatenated.
+    """
+    validate_role_name(role)
+    conn = await asyncpg.connect(to_asyncpg_dsn(url))
+    try:
+        database = await conn.fetchval("SELECT current_database()")
+        exists = await conn.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", role)
+        verb = "ALTER" if exists else "CREATE"
+        options = "LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+        statements = [
+            await conn.fetchval(
+                f"SELECT format('{verb} ROLE %I {options} PASSWORD %L', $1::text, $2::text)",
+                role,
+                password,
+            ),
+            await conn.fetchval(
+                "SELECT format('REVOKE ALL ON DATABASE %I FROM %I', $1::text, $2::text)",
+                database,
+                role,
+            ),
+            await conn.fetchval(
+                "SELECT format('GRANT CONNECT ON DATABASE %I TO %I', $1::text, $2::text)",
+                database,
+                role,
+            ),
+            await conn.fetchval(
+                "SELECT format('ALTER ROLE %I IN DATABASE %I SET default_transaction_read_only"
+                " = on', $1::text, $2::text)",
+                role,
+                database,
+            ),
+            await conn.fetchval(
+                "SELECT format('REVOKE ALL ON SCHEMA public FROM %I', $1::text)", role
+            ),
+            await conn.fetchval(
+                "SELECT format('REVOKE ALL ON ALL TABLES IN SCHEMA public FROM %I', $1::text)",
+                role,
+            ),
+            await conn.fetchval(
+                "SELECT format('GRANT USAGE ON SCHEMA public TO %I', $1::text)", role
+            ),
+            await conn.fetchval(
+                "SELECT format('GRANT SELECT ON ALL TABLES IN SCHEMA public TO %I', $1::text)",
+                role,
+            ),
+        ]
+        async with conn.transaction():
+            for statement in statements:
+                await conn.execute(statement)
+    finally:
+        await conn.close()

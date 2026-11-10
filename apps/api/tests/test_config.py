@@ -50,6 +50,20 @@ def test_auth_defaults_and_cookie_secure(monkeypatch: pytest.MonkeyPatch) -> Non
     assert Settings(_env_file=None).cookie_secure is True
 
 
+def test_data_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@h/db")
+    monkeypatch.setenv("REDIS_URL", "redis://h:6379/0")
+    for name in ("DATA_ENCRYPTION_KEY", "DEMO_DB_READONLY_PASSWORD"):
+        monkeypatch.delenv(name, raising=False)
+    settings = Settings(_env_file=None)
+    assert settings.data_encryption_key is None
+    assert settings.data_query_timeout_s == 10
+    assert settings.data_max_rows == 1000
+    assert settings.data_link_top_tables == 4
+    assert settings.demo_db_readonly_user == "nawa_demo_ro"
+    assert settings.demo_db_readonly_password is None
+
+
 def test_knowledge_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_URL", "postgresql+asyncpg://u:p@h/db")
     monkeypatch.setenv("REDIS_URL", "redis://h:6379/0")

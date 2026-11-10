@@ -132,6 +132,11 @@ The `worker` service (ARQ on Redis) runs background ingestion and shares the `up
 The optional `reranker` service (compose profile `reranker`, about 2.3 GB of weights, cached in a volume)
 runs a cross-encoder; on CPU it takes about 2 s per passage, so it is off by default.
 
+Data analyst settings (Phase 2): `DATA_ENCRYPTION_KEY` (Fernet key that encrypts data source passwords; without it
+creating a data source returns 503), `DEMO_DB_READONLY_USER` / `DEMO_DB_READONLY_PASSWORD` (a SELECT-only role that
+`make seed` creates in the demo database; skipped when the password is empty), and the tuning values
+`DATA_QUERY_TIMEOUT_S`, `DATA_MAX_ROWS`, `DATA_LINK_TOP_TABLES`.
+
 Python uses `uv`; the frontend uses `pnpm`. Tests never call a real LLM; they use a fake client.
 
 API integration tests need a PostgreSQL superuser URL in `TEST_DATABASE_OWNER_URL`; without it
