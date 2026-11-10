@@ -102,3 +102,39 @@ export type StoredMessage = {
   feedback: 1 | -1 | null;
 };
 export type ConversationDetail = { id: string; title: string; messages: StoredMessage[] };
+
+export type DataSourceStatus = "untested" | "ok" | "failed";
+export type DataSource = {
+  id: string;
+  name: string;
+  kind: string;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  ssl_mode: string;
+  status: DataSourceStatus;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+export type ConnectionReport = { ok: boolean; server_version: string | null; problems: string[] };
+export type DataSourceCreated = { source: DataSource; report: ConnectionReport };
+export type DataSourceCreate = {
+  name: string;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  ssl_mode: string;
+};
+export type DiscoverySummary = {
+  tables: number;
+  columns: number;
+  sampled_columns: number;
+  has_semantic_model: boolean;
+  created_at: string;
+};
+export type SemanticModelRead = { version: number; yaml: string; created_at: string };
+export type SemanticDraft = { yaml: string };

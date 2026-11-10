@@ -2,9 +2,16 @@ import { parseSse } from "@/lib/sse";
 import type {
   ChatEvent,
   ChunkOut,
+  ConnectionReport,
   ConversationDetail,
   ConversationSummary,
+  DataSource,
+  DataSourceCreate,
+  DataSourceCreated,
+  DiscoverySummary,
   DocumentOut,
+  SemanticDraft,
+  SemanticModelRead,
 } from "@/lib/types";
 
 export class ApiError extends Error {
@@ -12,6 +19,8 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly title: string,
     public readonly detail: string,
+    /** Individual problems the server listed (for example a rejected semantic model). */
+    public readonly problems: string[] = [],
   ) {
     super(detail || title);
     this.name = "ApiError";
@@ -42,13 +51,21 @@ function describeDetail(detail: unknown): string {
 }
 
 async function toApiError(response: Response): Promise<ApiError> {
-  let problem: { title?: string; detail?: unknown } = {};
+  let problem: { title?: string; detail?: unknown; problems?: unknown } = {};
   try {
     problem = (await response.json()) as typeof problem;
   } catch {
     // Body is not JSON; fall back to the status text.
   }
-  return new ApiError(response.status, problem.title ?? response.statusText, describeDetail(problem.detail));
+  const problems = Array.isArray(problem.problems)
+    ? problem.problems.filter((item): item is string => typeof item === "string")
+    : [];
+  return new ApiError(
+    response.status,
+    problem.title ?? response.statusText,
+    describeDetail(problem.detail),
+    problems,
+  );
 }
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -96,8 +113,48 @@ export async function* streamChat(
   yield* parseSse(response.body);
 }
 
+function dataPath(workspaceId: string, sourceId?: string, suffix = ""): string {
+  return `/workspaces/${workspaceId}/data-sources${sourceId ? `/${sourceId}` : ""}${suffix}`;
+}
+
+/** Removes the connection password from anything the server echoed back. */
+function withoutSecret(error: unknown, secret: string): unknown {
+  if (!(error instanceof ApiError) || !secret) return error;
+  const clean = (text: string) => text.split(secret).join("***");
+  return new ApiError(error.status, error.title, clean(error.detail), error.problems.map(clean));
+}
+
 export const api = {
   streamChat,
+  dataSources: {
+    list: (workspaceId: string) => apiFetch<DataSource[]>(dataPath(workspaceId)),
+    create: async (workspaceId: string, body: DataSourceCreate) => {
+      try {
+        return await apiFetch<DataSourceCreated>(dataPath(workspaceId), withBody("POST", body));
+      } catch (error) {
+        throw withoutSecret(error, body.password);
+      }
+    },
+    test: (workspaceId: string, sourceId: string) =>
+      apiFetch<ConnectionReport>(dataPath(workspaceId, sourceId, "/test"), { method: "POST" }),
+    discover: (workspaceId: string, sourceId: string) =>
+      apiFetch<DiscoverySummary>(dataPath(workspaceId, sourceId, "/discover"), { method: "POST" }),
+    remove: (workspaceId: string, sourceId: string) =>
+      apiFetch<void>(dataPath(workspaceId, sourceId), { method: "DELETE" }),
+  },
+  semantic: {
+    get: (workspaceId: string, sourceId: string) =>
+      apiFetch<SemanticModelRead>(dataPath(workspaceId, sourceId, "/semantic-model")),
+    draft: (workspaceId: string, sourceId: string) =>
+      apiFetch<SemanticDraft>(dataPath(workspaceId, sourceId, "/semantic-model/draft"), {
+        method: "POST",
+      }),
+    save: (workspaceId: string, sourceId: string, yaml: string) =>
+      apiFetch<SemanticModelRead>(
+        dataPath(workspaceId, sourceId, "/semantic-model"),
+        withBody("PUT", { yaml }),
+      ),
+  },
   listConversations: (workspaceId: string) =>
     apiFetch<ConversationSummary[]>(`/workspaces/${workspaceId}/conversations`),
   getConversation: (workspaceId: string, conversationId: string) =>
