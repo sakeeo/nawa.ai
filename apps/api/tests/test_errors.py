@@ -60,3 +60,25 @@ def test_unhandled_error_hides_internals() -> None:
     assert body["request_id"] == "r1"
     assert response.headers["X-Request-ID"] == "r1"
     assert "secret" not in response.text
+
+
+def test_extra_fields_are_added_to_the_problem_body_but_cannot_override_standard_ones() -> None:
+    from nawa.core.errors import ValidationFailedError
+
+    app = FastAPI()
+    app.add_middleware(RequestIdMiddleware)
+    install_error_handlers(app)
+
+    @app.get("/bad")
+    def bad() -> None:
+        raise ValidationFailedError("The model has problems", extra={"problems": ["a", "b"]})
+
+    @app.get("/sneaky")
+    def sneaky() -> None:
+        raise NotFoundError("x", extra={"status": 200, "code": "fine"})
+
+    client = TestClient(app)
+    body = client.get("/bad").json()
+    assert body["problems"] == ["a", "b"] and body["code"] == "validation_failed"
+    sneaky_body = client.get("/sneaky").json()
+    assert sneaky_body["status"] == 404 and sneaky_body["code"] == "not_found"

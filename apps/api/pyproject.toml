@@ -22,6 +22,8 @@ dependencies = [
   "filetype>=1.2.0",
   "arq>=0.28.0",
   "python-multipart>=0.0.33",
+  "cryptography>=50.0.2",
+  "sqlglot>=30.30.0",
 ]
 
 [dependency-groups]
@@ -90,6 +92,21 @@ modules = [
 ignore_imports = [
   "nawa.knowledge.api -> nawa.workspace.deps",
   "nawa.knowledge.api -> nawa.workspace.repository",
+  # The data API checks roles and reads the instance AI provider, as the knowledge API does.
+  "nawa.data.api -> nawa.workspace.deps",
+  "nawa.data.api -> nawa.workspace.repository",
+  # The Text-to-SQL golden dataset checks its references with the same guard as model SQL.
+  "nawa.evaluation.sql_dataset -> nawa.data.guard",
+  # The Text-to-SQL evaluation drives the real pipeline through its public entry points (P16).
+  "nawa.evaluation.sql_runner -> nawa.data.service",
+  "nawa.evaluation.sql_runner -> nawa.data.discovery",
+  "nawa.evaluation.sql_runner -> nawa.data.guard",
+  "nawa.evaluation.sql_runner -> nawa.data.semantic",
+  "nawa.evaluation.sql_runner -> nawa.data.insight",
+  "nawa.evaluation.sql_runner -> nawa.data.executor",
+  "nawa.evaluation.sql_runner -> nawa.data.connector",
+  "nawa.evaluation.sql_metrics -> nawa.data.executor",
+  "nawa.evaluation.__main__ -> nawa.data.semantic",
   # The evaluation drives the real pipeline through public entry points only (ADR in T1-15).
   "nawa.evaluation.runner -> nawa.knowledge.answer",
   "nawa.evaluation.runner -> nawa.knowledge.corpus",

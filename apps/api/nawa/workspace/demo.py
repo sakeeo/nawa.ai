@@ -34,6 +34,13 @@ async def load_demo_data(settings: Settings) -> bool:
         )
         await seed_load.ensure_database(admin_url, settings.demo_database_name)
         counts = await seed_load.load_async(target_url)
+        if settings.demo_db_readonly_password:
+            # After the load: reloading drops the tables and their grants.
+            await seed_load.ensure_readonly_role(
+                target_url, settings.demo_db_readonly_user, settings.demo_db_readonly_password
+            )
+        else:
+            logger.warning("DEMO_DB_READONLY_PASSWORD is not set; skipping the read-only role")
     except Exception:
         logger.exception("Demo data load failed")
         return False

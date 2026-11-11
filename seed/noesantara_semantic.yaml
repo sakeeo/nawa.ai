@@ -1,0 +1,140 @@
+# Semantic layer for the Resto Noesantara demo database (seed/noesantara_seed).
+# Only the tables and columns listed here may appear in AI-generated SQL.
+# customers.name is left out on purpose: it is personal data the analyst must not read.
+tables:
+  outlets:
+    description: Restaurant outlets (one row per branch).
+    synonyms: [outlet, cabang, restoran, gerai]
+    columns:
+      - id
+      - {name: name, description: Outlet name, synonyms: [nama outlet]}
+      - {name: city, description: City where the outlet operates, synonyms: [kota]}
+  menu_items:
+    description: Menu items with selling price and food cost (HPP).
+    synonyms: [menu, hidangan, makanan]
+    columns:
+      - id
+      - {name: name, description: Menu item name, synonyms: [nama menu]}
+      - {name: category, description: Menu category, synonyms: [kategori menu]}
+      - {name: food_cost, description: Ingredient cost per portion in rupiah, synonyms: [hpp]}
+      - {name: price, description: Listed selling price in rupiah, synonyms: [harga]}
+  ingredients:
+    description: Raw ingredients.
+    synonyms: [bahan, bahan baku]
+    columns:
+      - id
+      - {name: name, description: Ingredient name}
+      - {name: unit, description: Unit of measure}
+  recipes:
+    description: Ingredient quantity needed per portion of a menu item.
+    synonyms: [resep]
+    columns:
+      - menu_item_id
+      - ingredient_id
+      - {name: quantity, description: Quantity of the ingredient per portion}
+  customers:
+    description: Loyalty members, each tied to a home outlet. Names are not available.
+    synonyms: [pelanggan, member]
+    columns:
+      - id
+      - outlet_id
+  orders:
+    description: One row per customer order.
+    synonyms: [pesanan, transaksi, order]
+    columns:
+      - id
+      - outlet_id
+      - customer_id
+      - {name: channel, description: "Sales channel: dine_in, takeaway or delivery", synonyms: [kanal, saluran]}
+      - {name: created_at, description: When the order was placed, synonyms: [tanggal, waktu]}
+  order_items:
+    description: Menu items sold within an order.
+    synonyms: [item pesanan, rincian pesanan]
+    columns:
+      - id
+      - order_id
+      - menu_item_id
+      - {name: quantity, description: Portions sold, synonyms: [jumlah, porsi]}
+      - {name: unit_price, description: Price per portion at the time of sale in rupiah}
+  ingredient_stock:
+    description: Month-end stock of each ingredient per outlet, with its minimum level.
+    synonyms: [stok, persediaan]
+    columns:
+      - outlet_id
+      - ingredient_id
+      - {name: month, description: First day of the month}
+      - {name: stock_qty, description: Quantity in stock}
+      - {name: min_stock, description: Minimum stock level before restocking}
+  expenses:
+    description: Monthly operating expenses per outlet and category.
+    synonyms: [biaya, pengeluaran]
+    columns:
+      - id
+      - outlet_id
+      - {name: month, description: First day of the month}
+      - {name: category, description: Expense category}
+      - {name: amount, description: Amount in rupiah}
+
+metrics:
+  revenue:
+    description: Total sales value before discounts.
+    sql: SUM(order_items.quantity * order_items.unit_price)
+    synonyms: [omzet, penjualan, pendapatan kotor, total penjualan, performa, kinerja]
+  gross_profit:
+    description: Revenue minus ingredient cost (HPP).
+    sql: SUM(order_items.quantity * (order_items.unit_price - menu_items.food_cost))
+    synonyms: [laba kotor, keuntungan, profit, untung, menguntungkan]
+  order_count:
+    description: Number of distinct orders.
+    sql: COUNT(DISTINCT orders.id)
+    synonyms: [jumlah pesanan, jumlah transaksi]
+  average_order_value:
+    description: Average revenue per order.
+    sql: revenue / NULLIF(COUNT(DISTINCT orders.id), 0)
+    synonyms: [rata-rata pesanan, aov]
+  units_sold:
+    description: Total portions sold.
+    sql: SUM(order_items.quantity)
+    synonyms: [porsi terjual, jumlah terjual]
+  total_expenses:
+    description: Sum of operating expenses.
+    sql: SUM(expenses.amount)
+    synonyms: [total biaya, pengeluaran]
+
+dimensions:
+  outlet:
+    sql: outlets.name
+    synonyms: [cabang, gerai]
+  city:
+    sql: outlets.city
+    synonyms: [kota]
+  channel:
+    sql: orders.channel
+    synonyms: [kanal, delivery, dine-in, takeaway]
+  menu_category:
+    sql: menu_items.category
+    synonyms: [kategori menu]
+  menu_item:
+    sql: menu_items.name
+    synonyms: [menu]
+  month:
+    sql: DATE_TRUNC('month', orders.created_at)
+    synonyms: [bulan]
+  expense_category:
+    sql: expenses.category
+    synonyms: [kategori biaya]
+
+joins:
+  - orders.outlet_id = outlets.id
+  - orders.customer_id = customers.id
+  - customers.outlet_id = outlets.id
+  - order_items.order_id = orders.id
+  - order_items.menu_item_id = menu_items.id
+  - recipes.menu_item_id = menu_items.id
+  - recipes.ingredient_id = ingredients.id
+  - ingredient_stock.outlet_id = outlets.id
+  - ingredient_stock.ingredient_id = ingredients.id
+  - expenses.outlet_id = outlets.id
+
+# "Today" for relative phrases like "bulan ini": the data is calendar 2025, not the wall clock.
+time_anchor: SELECT MAX(created_at)::date FROM orders

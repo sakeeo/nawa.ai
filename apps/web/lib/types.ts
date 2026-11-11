@@ -102,3 +102,78 @@ export type StoredMessage = {
   feedback: 1 | -1 | null;
 };
 export type ConversationDetail = { id: string; title: string; messages: StoredMessage[] };
+
+export type DataSourceStatus = "untested" | "ok" | "failed";
+export type DataSource = {
+  id: string;
+  name: string;
+  kind: string;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  ssl_mode: string;
+  status: DataSourceStatus;
+  last_error: string | null;
+  created_at: string;
+  updated_at: string;
+};
+export type ConnectionReport = { ok: boolean; server_version: string | null; problems: string[] };
+export type DataSourceCreated = { source: DataSource; report: ConnectionReport };
+export type DataSourceCreate = {
+  name: string;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  password: string;
+  ssl_mode: string;
+};
+export type DiscoverySummary = {
+  tables: number;
+  columns: number;
+  sampled_columns: number;
+  has_semantic_model: boolean;
+  created_at: string;
+};
+export type SemanticModelRead = { version: number; yaml: string; created_at: string };
+export type SemanticDraft = { yaml: string };
+
+export type ChartKind = "kpi" | "bar" | "line" | "table";
+export type ChartSpec = { kind: ChartKind; x: string | null; y: string[]; title: string };
+export type AskStatus = "ok" | "blocked" | "error" | "clarification";
+export type Anomaly = { label: string; value: number; z: number; direction: "high" | "low" };
+export type AskResponse = {
+  query_id: string;
+  status: AskStatus;
+  sql: string | null;
+  assumptions: string[];
+  clarification: string | null;
+  blocked_reason: string | null;
+  error: string | null;
+  columns: string[];
+  rows: unknown[][];
+  row_count: number;
+  truncated: boolean;
+  duration_ms: number;
+  chart: ChartSpec | null;
+  attempts: number;
+  linked_tables: string[];
+  anomalies: Anomaly[];
+};
+export type InsightRead = { text: string; grounded: boolean; cached: boolean };
+export type QueryLogEntry = {
+  id: string;
+  user_id: string | null;
+  question: string;
+  sql: string | null;
+  status: string;
+  blocked_reason: string | null;
+  attempts: number;
+  row_count: number | null;
+  duration_ms: number;
+  insight: string | null;
+  insight_grounded: boolean | null;
+  feedback: number | null;
+  created_at: string;
+};

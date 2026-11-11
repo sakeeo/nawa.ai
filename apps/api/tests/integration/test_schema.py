@@ -4,6 +4,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 import nawa.core.audit  # noqa: F401  (registers AuditLog)
+import nawa.data.models  # noqa: F401  (registers data models)
 import nawa.knowledge.models  # noqa: F401  (registers knowledge models)
 import nawa.workspace.models  # noqa: F401  (registers workspace models)
 from nawa.core.db import Base

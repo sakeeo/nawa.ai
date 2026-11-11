@@ -1,15 +1,18 @@
 import argparse
 import asyncio
 import importlib
+import importlib.metadata
 import os
 import platform
 import sys
+from dataclasses import asdict
 from datetime import date
 from pathlib import Path
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from nawa.core.config import get_settings
+from nawa.data.semantic import SemanticModel, parse_semantic_yaml
 from nawa.evaluation.dataset import load_golden
 from nawa.evaluation.experiments import (
     ExperimentResult,
@@ -29,6 +32,27 @@ from nawa.evaluation.runner import (
     RunConfig,
     check_preconditions,
     run_evaluation,
+)
+from nawa.evaluation.sql_report import TARGETS as SQL_TARGETS
+from nawa.evaluation.sql_report import (
+    SqlArmResult,
+    load_results,
+)
+from nawa.evaluation.sql_report import (
+    extract_analysis as extract_sql_analysis,
+)
+from nawa.evaluation.sql_report import (
+    render as render_sql_report,
+)
+from nawa.evaluation.sql_report import (
+    save_result as save_sql_result,
+)
+from nawa.evaluation.sql_runner import (
+    check_sql_preconditions,
+    load_sql_arms,
+    run_sql_eval,
+    sql_target,
+    with_run_details,
 )
 from nawa.intelligence.gateway import LiteLLMClient
 
@@ -254,6 +278,138 @@ async def _report(args: argparse.Namespace) -> int:
     return 0
 
 
+def format_sql_summary(result: SqlArmResult) -> str:
+    lines = [f"arm {result.name} ({result.status})", ""]
+    if result.status != "ok":
+        return "\n".join(lines + [f"  {result.reason}"])
+    for key, (target, op) in SQL_TARGETS.items():
+        value = result.metrics.get(key)
+        if value is None:
+            lines.append(f"  {key:24} {'n/a':>10}")
+            continue
+        ok = value >= target if op == ">=" else value < target
+        shown = f"{value:.0f} ms" if key.endswith("_ms") else f"{value:.3f}"
+        lines.append(
+            f"  {key:24} {shown:>10}   target {op} {target:g}   {'ok' if ok else 'BELOW TARGET'}"
+        )
+    recovery = result.metrics.get("self_correction_recovery_rate")
+    lines.append(
+        f"  {'self_correction_recovery':24} {'n/a' if recovery is None else f'{recovery:.3f}':>10}"
+    )
+    lines.append(f"  {'database_intact':24} {str(result.metrics.get('database_intact')):>10}")
+    lines.append("  " + ", ".join(f"{k}={v}" for k, v in sorted(result.counts.items())))
+    return "\n".join(lines)
+
+
+def _litellm_version() -> str:
+    try:
+        return importlib.metadata.version("litellm")
+    except importlib.metadata.PackageNotFoundError:
+        return ""
+
+
+def _load_semantic(root: Path) -> SemanticModel:
+    path = Path(os.environ.get("DEMO_SEMANTIC_YAML", root / "seed" / "noesantara_semantic.yaml"))
+    return parse_semantic_yaml(path.read_text(encoding="utf-8"))
+
+
+async def _sql(args: argparse.Namespace) -> int:
+    settings = get_settings()
+    root = _repo_root()
+    evals_dir = Path(os.environ.get("EVALS_DIR", root / "evals"))
+    results_dir = Path(args.results_dir) if args.results_dir else evals_dir / "results"
+    plan = load_sql_arms(evals_dir / "sql_experiments.yaml")
+    wanted = [a for a in plan.arms if args.arm in ("all", a.config.name)]
+    if not wanted:
+        names = [a.config.name for a in plan.arms]
+        print(f"error: unknown arm {args.arm!r}; known: {names}", file=sys.stderr)
+        return 2
+    model = _load_semantic(root)
+    commit = git_commit(root)
+    engine = create_async_engine(settings.database_url)
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    client = LiteLLMClient()
+    exit_code = 0
+    try:
+        for arm in wanted:
+            details = {
+                "group": arm.group,
+                "git_commit": commit,
+                "litellm_version": _litellm_version(),
+            }
+            missing = [name for name in arm.requires_env if not os.environ.get(name)]
+            problem = check_sql_preconditions(arm.config, settings)
+            if missing or problem:
+                reason = f"needs {', '.join(missing)}" if missing else str(problem)
+                result = SqlArmResult(
+                    name=arm.config.name,
+                    group=arm.group,
+                    status="skipped",
+                    config=asdict(arm.config),
+                    reason=reason,
+                    git_commit=commit,
+                )
+                exit_code = exit_code or (2 if len(wanted) == 1 else 0)
+            else:
+                print(f"== arm {arm.config.name}", flush=True)
+                try:
+                    result = with_run_details(
+                        await run_sql_eval(
+                            arm.config,
+                            settings=settings,
+                            client=client,
+                            maker=maker,
+                            target=sql_target(settings),
+                            model=model,
+                            golden_path=evals_dir / "sql_golden.yaml",
+                            limit=args.limit,
+                            progress=lambda message: print(message, flush=True),
+                        ),
+                        **details,
+                    )
+                except Exception as exc:
+                    result = SqlArmResult(
+                        name=arm.config.name,
+                        group=arm.group,
+                        status="error",
+                        config=asdict(arm.config),
+                        reason=f"{type(exc).__name__}: {exc}"[:300],
+                        git_commit=commit,
+                    )
+                    exit_code = 1
+            print(f"saved {save_sql_result(result, results_dir)}", flush=True)
+            print(format_sql_summary(result), flush=True)
+    finally:
+        await engine.dispose()
+    return exit_code
+
+
+async def _sql_report(args: argparse.Namespace) -> int:
+    root = _repo_root()
+    evals_dir = Path(os.environ.get("EVALS_DIR", root / "evals"))
+    results_dir = Path(args.results_dir) if args.results_dir else evals_dir / "results"
+    plan = load_sql_arms(evals_dir / "sql_experiments.yaml")
+    results = load_results(results_dir)
+    if not results:
+        print(f"error: no SQL results in {results_dir}; run `sql` first", file=sys.stderr)
+        return 2
+    order = [a.config.name for a in plan.arms]
+    results.sort(key=lambda r: order.index(r.name) if r.name in order else len(order))
+    out = Path(args.output) if args.output else root / "docs" / "evaluation-report-sql.md"
+    existing = out.read_text(encoding="utf-8") if out.is_file() else ""
+    try:
+        markdown = render_sql_report(
+            results, baseline=plan.baseline, analysis=extract_sql_analysis(existing)
+        )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(markdown, encoding="utf-8")
+    print(f"wrote {out}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     _register_models()
     parser = argparse.ArgumentParser(prog="python -m nawa.evaluation")
@@ -271,8 +427,21 @@ def main(argv: list[str] | None = None) -> int:
     rep.add_argument("--calibration-arm", default="retrieval-hybrid")
     rep.add_argument("--final-arm", default="chunk-heading")
     rep.add_argument("--min-answerable-recall", type=float, default=0.95)
+    sql = sub.add_parser("sql", help="run the Text-to-SQL golden dataset (one arm or all)")
+    sql.add_argument("--arm", default="baseline", help="arm name from evals/sql_experiments.yaml")
+    sql.add_argument("--limit", type=int, default=None, help="evaluate only N questions")
+    sql.add_argument("--results-dir", default=None)
+    sql_rep = sub.add_parser("sql-report", help="render docs/evaluation-report-sql.md")
+    sql_rep.add_argument("--results-dir", default=None)
+    sql_rep.add_argument("--output", default=None)
     args = parser.parse_args(argv)
-    handler = {"run": _run, "experiments": _experiments, "report": _report}[args.command]
+    handler = {
+        "run": _run,
+        "experiments": _experiments,
+        "report": _report,
+        "sql": _sql,
+        "sql-report": _sql_report,
+    }[args.command]
     return asyncio.run(handler(args))
 
 

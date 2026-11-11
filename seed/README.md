@@ -32,3 +32,21 @@ prompt-injection memos (`injection-*.md`). Formats are mostly `.md`, with `.txt`
 - The golden dataset `evals/golden.yaml` (75 questions) points at these files and at fact ids
   `<filename>#<index>` in the manifest; `make eval` and the experiments ingest them into the
   `nawa-eval` workspace.
+
+## Data analyst (`noesantara_semantic.yaml`)
+
+The Phase 2 data analyst queries the `noesantara` database as a SELECT-only role.
+
+- `make seed` creates that role (`DEMO_DB_READONLY_USER`, password `DEMO_DB_READONLY_PASSWORD`; skipped
+  when the password is empty) after every load, because reloading drops the tables and their grants.
+  `seed_load.ensure_readonly_role(url, role, password)` is idempotent.
+- `noesantara_semantic.yaml` is the semantic layer to paste into the Data sources page: nine tables,
+  the metrics `revenue`, `gross_profit`, `order_count`, `average_order_value`, `units_sold` and
+  `total_expenses`, seven dimensions, the joins, Indonesian synonyms, and a `time_anchor` so that
+  "bulan ini" means December 2025, the month of the newest order. `customers.name` is left out on
+  purpose: it is personal data the analyst must not read.
+- The golden dataset `evals/sql_golden.yaml` (50 answerable questions with hand-checked reference SQL,
+  10 dangerous ones) is written against this exact data. The reference answers are pinned by
+  `tests/integration/test_sql_golden_reference.py`; if the generator changes, that test fails and the
+  dataset must be re-checked, so do not change the generator casually.
+

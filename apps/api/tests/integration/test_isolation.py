@@ -56,11 +56,29 @@ async def test_every_workspace_route_rejects_another_tenants_workspace(
         "/api/v1/workspaces/{workspace_id}/conversations",
         "/api/v1/workspaces/{workspace_id}/conversations/{conversation_id}",
         "/api/v1/workspaces/{workspace_id}/messages/{message_id}/feedback",
+        "/api/v1/workspaces/{workspace_id}/data-sources",
+        "/api/v1/workspaces/{workspace_id}/data-sources/{source_id}",
+        "/api/v1/workspaces/{workspace_id}/data-sources/{source_id}/test",
+        "/api/v1/workspaces/{workspace_id}/data-sources/{source_id}/discover",
+        "/api/v1/workspaces/{workspace_id}/data-sources/{source_id}/semantic-model",
+        "/api/v1/workspaces/{workspace_id}/data-sources/{source_id}/semantic-model/draft",
+        "/api/v1/workspaces/{workspace_id}/data/ask",
+        "/api/v1/workspaces/{workspace_id}/data/queries",
+        "/api/v1/workspaces/{workspace_id}/data/queries/{query_id}/insight",
+        "/api/v1/workspaces/{workspace_id}/data/queries/{query_id}/feedback",
     }
     assert sum(len(r.methods) for r in routes) >= 5
     for route in routes:
         path = route.path.replace("{workspace_id}", str(ws_b))
-        for param in ("user_id", "document_id", "chunk_id", "conversation_id", "message_id"):
+        for param in (
+            "user_id",
+            "document_id",
+            "chunk_id",
+            "conversation_id",
+            "message_id",
+            "source_id",
+            "query_id",
+        ):
             path = path.replace("{" + param + "}", str(uuid.uuid4()))
         for method in route.methods:
             response = await manager_a.client.request(

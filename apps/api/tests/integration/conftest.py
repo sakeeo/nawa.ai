@@ -2,8 +2,10 @@ import asyncio
 import os
 import secrets
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
+import asyncpg
 import fakeredis.aioredis
 import httpx
 import pytest
@@ -154,3 +156,110 @@ async def make_actor(
         return Actor(user_id=user_id, email=email, client=http, csrf=csrf)
 
     return make
+
+
+@dataclass(frozen=True)
+class TargetDb:
+    """A scratch 'customer' database plus connection parameters for two roles."""
+
+    owner: object  # nawa.data.connector.ConnectionParams (superuser)
+    readonly: object  # nawa.data.connector.ConnectionParams (SELECT only)
+    database: str
+
+
+TARGET_DDL = """
+CREATE TABLE outlets (id int PRIMARY KEY, name text NOT NULL, city text NOT NULL);
+CREATE TABLE orders (
+  id int PRIMARY KEY,
+  outlet_id int NOT NULL REFERENCES outlets(id),
+  channel text NOT NULL,
+  note text,
+  amount numeric(12, 2),
+  created_at timestamp NOT NULL
+);
+"""
+
+
+@pytest_asyncio.fixture
+async def target_database() -> AsyncIterator[TargetDb]:
+    """A second database with a tiny sales schema, owned by the test owner role."""
+    from noesantara_seed import load as seed_load
+
+    from nawa.data.connector import ConnectionParams
+
+    owner_url = os.environ.get("TEST_DATABASE_OWNER_URL")
+    if not owner_url:
+        if os.environ.get("CI"):
+            pytest.fail("TEST_DATABASE_OWNER_URL must be set in CI")
+        pytest.skip("TEST_DATABASE_OWNER_URL not set")
+    base = make_url(owner_url)
+    name = f"nawa_target_{secrets.token_hex(4)}"
+    role = f"nawa_ro_{secrets.token_hex(3)}"
+    password = "target-ro-password"
+    admin = await asyncpg.connect(seed_load.to_asyncpg_dsn(base.render_as_string(False)))
+    await admin.execute(f'CREATE DATABASE "{name}"')
+    target_url = base.set(database=name).render_as_string(hide_password=False)
+    conn = await asyncpg.connect(seed_load.to_asyncpg_dsn(target_url))
+    try:
+        await conn.execute(TARGET_DDL)
+        await conn.executemany(
+            "INSERT INTO outlets VALUES ($1, $2, $3)",
+            [(1, "Jakarta", "Jakarta"), (2, "Bandung", "Bandung"), (3, "Medan", "Medan")],
+        )
+        channels = ["dine_in", "takeaway", "delivery"]
+        await conn.executemany(
+            "INSERT INTO orders VALUES ($1, $2, $3, $4, $5, now())",
+            [
+                (i, i % 3 + 1, channels[i % 3], f"free text note number {i:04d} " + "x" * 40, i)
+                for i in range(1, 41)
+            ],
+        )
+        await seed_load.ensure_readonly_role(target_url, role, password)
+        host, port = base.host or "127.0.0.1", base.port or 5432
+        yield TargetDb(
+            owner=ConnectionParams(
+                host, port, name, base.username or "", base.password or "", "prefer"
+            ),
+            readonly=ConnectionParams(host, port, name, role, password, "prefer"),
+            database=name,
+        )
+    finally:
+        await conn.close()
+        await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        await admin.execute(f"DROP ROLE IF EXISTS {role}")
+        await admin.close()
+
+
+@pytest_asyncio.fixture
+async def demo_database() -> AsyncIterator[object]:
+    """The real Resto Noesantara seed in a scratch database, with a SELECT-only role.
+
+    Yields the `ConnectionParams` of that role. Loading takes a few seconds, so tests that need
+    the full dataset share one test where they can.
+    """
+    from noesantara_seed import load as seed_load
+
+    from nawa.data.connector import ConnectionParams
+
+    owner_url = os.environ.get("TEST_DATABASE_OWNER_URL")
+    if not owner_url:
+        if os.environ.get("CI"):
+            pytest.fail("TEST_DATABASE_OWNER_URL must be set in CI")
+        pytest.skip("TEST_DATABASE_OWNER_URL not set")
+    base = make_url(owner_url)
+    name = f"nawa_demo_{secrets.token_hex(4)}"
+    role = f"nawa_demo_ro_{secrets.token_hex(3)}"
+    password = "demo-ro-password"
+    admin = await asyncpg.connect(seed_load.to_asyncpg_dsn(base.render_as_string(False)))
+    await admin.execute(f'CREATE DATABASE "{name}"')
+    target_url = base.set(database=name).render_as_string(hide_password=False)
+    try:
+        await seed_load.load_async(target_url)
+        await seed_load.ensure_readonly_role(target_url, role, password)
+        yield ConnectionParams(
+            base.host or "127.0.0.1", base.port or 5432, name, role, password, "prefer"
+        )
+    finally:
+        await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        await admin.execute(f"DROP ROLE IF EXISTS {role}")
+        await admin.close()
